@@ -8,19 +8,30 @@
         "data": {
           "host": "IP-Adresse / Hostname",
           "mac": "MAC-Adresse (optional)",
-          "broadcast_address": "Wake-on-LAN-Broadcast-Adresse"
+          "broadcast_address": "Wake-on-LAN-Broadcast-Adresse",
+          "f1_source_selection_button_id": "F1-Quellenauswahl-Tasten-ID (optional)"
+        },
+        "data_description": {
+          "f1_source_selection_button_id": "Metz-SendKeyCode-ID der Zifferntaste, die nach F1 die Quellenliste öffnet (1–10). Beispiel: Ziffer 1 = ID 2. Leer lassen, um die Quellenauswahl auszublenden."
         }
       },
       "confirm": {
         "title": "Metz-Classic-Fernseher gefunden",
-        "description": "{name} zu Home Assistant hinzufügen?"
+        "description": "{name} zu Home Assistant hinzufügen?",
+        "data": {
+          "f1_source_selection_button_id": "F1-Quellenauswahl-Tasten-ID (optional)"
+        },
+        "data_description": {
+          "f1_source_selection_button_id": "Metz-SendKeyCode-ID der Zifferntaste, die nach F1 die Quellenliste öffnet (1–10). Beispiel: Ziffer 1 = ID 2. Leer lassen, um die Quellenauswahl auszublenden."
+        }
       }
     },
     "error": {
       "cannot_connect": "Verbindung zum Metz RCRService fehlgeschlagen",
       "invalid_host": "Ungültige IP-Adresse / Hostname",
       "invalid_mac": "Ungültige MAC-Adresse",
-      "invalid_broadcast": "Ungültige IPv4-Broadcast-Zieladresse"
+      "invalid_broadcast": "Ungültige IPv4-Broadcast-Zieladresse",
+      "invalid_f1_button_id": "Ungültige F1-Tasten-ID (zulässig: 1–10)"
     },
     "abort": {
       "already_configured": "Dieser Fernseher wurde bereits eingerichtet",
@@ -30,17 +41,29 @@
   "options": {
     "step": {
       "init": {
-        "title": "Wake-on-LAN-Einstellungen",
-        "description": "MAC-Adresse des Fernsehers und Broadcast-Ziel festlegen. Die Integration wird anschließend neu geladen.",
+        "title": "Metz-TV-Einstellungen",
+        "description": "Wake-on-LAN und optional die F1-Quellenauswahl konfigurieren. Die Integration wird bei Änderungen neu geladen.",
         "data": {
           "mac": "MAC-Adresse (optional)",
-          "broadcast_address": "Wake-on-LAN-Broadcast-Adresse"
+          "broadcast_address": "Wake-on-LAN-Broadcast-Adresse",
+          "f1_source_selection_button_id": "F1-Quellenauswahl-Tasten-ID (optional)"
+        },
+        "data_description": {
+          "f1_source_selection_button_id": "Metz-SendKeyCode-ID der Zifferntaste, die nach F1 die Quellenliste öffnet (1–10). Beispiel: Ziffer 1 = ID 2. Leer lassen, um die Quellenauswahl auszublenden."
         }
       }
     },
     "error": {
       "invalid_mac": "Ungültige MAC-Adresse",
-      "invalid_broadcast": "Ungültige IPv4-Broadcast-Zieladresse"
+      "invalid_broadcast": "Ungültige IPv4-Broadcast-Zieladresse",
+      "invalid_f1_button_id": "Ungültige F1-Tasten-ID (zulässig: 1–10)"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "active_source": {
+        "name": "Aktive Quelle"
+      }
     }
   }
 }

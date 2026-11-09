@@ -8,19 +8,30 @@
         "data": {
           "host": "TV IP address / hostname",
           "mac": "MAC address (optional)",
-          "broadcast_address": "Wake-on-LAN broadcast address"
+          "broadcast_address": "Wake-on-LAN broadcast address",
+          "f1_source_selection_button_id": "F1 source-selection button ID (optional)"
+        },
+        "data_description": {
+          "f1_source_selection_button_id": "Raw Metz SendKeyCode ID of the numeric button that opens the source list after F1 (1–10). Example: digit 1 = ID 2. Leave blank to disable source selection."
         }
       },
       "confirm": {
         "title": "Discovered Metz Remote",
-        "description": "Add {name} to Home Assistant?"
+        "description": "Add {name} to Home Assistant?",
+        "data": {
+          "f1_source_selection_button_id": "F1 source-selection button ID (optional)"
+        },
+        "data_description": {
+          "f1_source_selection_button_id": "Raw Metz SendKeyCode ID of the numeric button that opens the source list after F1 (1–10). Example: digit 1 = ID 2. Leave blank to disable source selection."
+        }
       }
     },
     "error": {
       "cannot_connect": "Could not connect to a Metz RCRService TV",
       "invalid_host": "Invalid IP address / hostname",
       "invalid_mac": "Invalid MAC address",
-      "invalid_broadcast": "Invalid IPv4 broadcast destination"
+      "invalid_broadcast": "Invalid IPv4 broadcast destination",
+      "invalid_f1_button_id": "Invalid F1 button ID (valid keycodes: 1-10)"
     },
     "abort": {
       "already_configured": "This TV is already configured",
@@ -30,17 +41,29 @@
   "options": {
     "step": {
       "init": {
-        "title": "Wake-on-LAN settings",
-        "description": "Set the TV MAC address and broadcast destination. Changes reload the integration.",
+        "title": "Metz TV settings",
+        "description": "Configure WOL and the optional F1 source-selection shortcut; the integration reloads when changed.",
         "data": {
           "mac": "MAC address (optional)",
-          "broadcast_address": "Wake-on-LAN broadcast address"
+          "broadcast_address": "Wake-on-LAN broadcast address",
+          "f1_source_selection_button_id": "F1 source-selection button ID (optional)"
+        },
+        "data_description": {
+          "f1_source_selection_button_id": "Raw Metz SendKeyCode ID of the numeric button that opens the source list after F1 (1–10). Example: digit 1 = ID 2. Leave blank to disable source selection."
         }
       }
     },
     "error": {
       "invalid_mac": "Invalid MAC address",
-      "invalid_broadcast": "Invalid IPv4 broadcast destination"
+      "invalid_broadcast": "Invalid IPv4 broadcast destination",
+      "invalid_f1_button_id": "Invalid F1 button ID (valid keycodes: 1-10)"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "active_source": {
+        "name": "Active source"
+      }
     }
   }
 }

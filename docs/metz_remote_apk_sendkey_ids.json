@@ -1,0 +1,484 @@
+{
+  "apk": "de.metz.android.mecaremote.apk",
+  "sources": [
+    "classes.dex",
+    "assets/RemoteControlAlternate.html",
+    "assets/remoteControl.js"
+  ],
+  "mapped_web_actions": 44,
+  "extra_legacy_keys": 1,
+  "extra_gesture_keys": 2,
+  "total_distinct_codes": 47,
+  "keycodes": [
+    {
+      "keycode": 1,
+      "hex": "0x01",
+      "action": "0",
+      "function": "0",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key0",
+      "notes": ""
+    },
+    {
+      "keycode": 2,
+      "hex": "0x02",
+      "action": "1",
+      "function": "1",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key1",
+      "notes": ""
+    },
+    {
+      "keycode": 3,
+      "hex": "0x03",
+      "action": "2",
+      "function": "2",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key2",
+      "notes": ""
+    },
+    {
+      "keycode": 4,
+      "hex": "0x04",
+      "action": "3",
+      "function": "3",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key3",
+      "notes": ""
+    },
+    {
+      "keycode": 5,
+      "hex": "0x05",
+      "action": "4",
+      "function": "4",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key4",
+      "notes": ""
+    },
+    {
+      "keycode": 6,
+      "hex": "0x06",
+      "action": "5",
+      "function": "5",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key5",
+      "notes": ""
+    },
+    {
+      "keycode": 7,
+      "hex": "0x07",
+      "action": "6",
+      "function": "6",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key6",
+      "notes": ""
+    },
+    {
+      "keycode": 8,
+      "hex": "0x08",
+      "action": "7",
+      "function": "7",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key7",
+      "notes": ""
+    },
+    {
+      "keycode": 9,
+      "hex": "0x09",
+      "action": "8",
+      "function": "8",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key8",
+      "notes": ""
+    },
+    {
+      "keycode": 10,
+      "hex": "0x0A",
+      "action": "9",
+      "function": "9",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Key9",
+      "notes": ""
+    },
+    {
+      "keycode": 11,
+      "hex": "0x0B",
+      "action": "OffOn",
+      "function": "Power toggle (legacy button)",
+      "context": "Legacy Android button layout (descriptionMap + keyToIcon)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; resource button_name_OffOn",
+      "legacy_resource_name": "button_name_OffOn",
+      "notes": "Not equivalent to HTML Off=51; do not assume same semantics"
+    },
+    {
+      "keycode": 12,
+      "hex": "0x0C",
+      "action": "F1",
+      "function": "F1",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_F1",
+      "notes": ""
+    },
+    {
+      "keycode": 13,
+      "hex": "0x0D",
+      "action": "F2",
+      "function": "F2",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_F2",
+      "notes": ""
+    },
+    {
+      "keycode": 14,
+      "hex": "0x0E",
+      "action": "F3",
+      "function": "F3",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_F3",
+      "notes": ""
+    },
+    {
+      "keycode": 18,
+      "hex": "0x12",
+      "action": "Blue",
+      "function": "Blue",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_blue",
+      "notes": ""
+    },
+    {
+      "keycode": 19,
+      "hex": "0x13",
+      "action": "Yellow",
+      "function": "Yellow",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_yellow",
+      "notes": ""
+    },
+    {
+      "keycode": 20,
+      "hex": "0x14",
+      "action": "Portal",
+      "function": "Portal",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_White",
+      "notes": ""
+    },
+    {
+      "keycode": 21,
+      "hex": "0x15",
+      "action": "Green",
+      "function": "Green",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_green",
+      "notes": ""
+    },
+    {
+      "keycode": 22,
+      "hex": "0x16",
+      "action": "Red",
+      "function": "Red",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_red",
+      "notes": ""
+    },
+    {
+      "keycode": 23,
+      "hex": "0x17",
+      "action": "cursor_up",
+      "function": "cursor_up",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_mecarcUp",
+      "notes": ""
+    },
+    {
+      "keycode": 24,
+      "hex": "0x18",
+      "action": "cursor_down",
+      "function": "cursor_down",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_mecarcDown",
+      "notes": ""
+    },
+    {
+      "keycode": 25,
+      "hex": "0x19",
+      "action": "cursor_left",
+      "function": "cursor_left",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_mecarcLeft",
+      "notes": ""
+    },
+    {
+      "keycode": 26,
+      "hex": "0x1A",
+      "action": "cursor_right",
+      "function": "cursor_right",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_mecarcRight",
+      "notes": ""
+    },
+    {
+      "keycode": 27,
+      "hex": "0x1B",
+      "action": "VolumeUp",
+      "function": "VolumeUp",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_volumeUp",
+      "notes": ""
+    },
+    {
+      "keycode": 28,
+      "hex": "0x1C",
+      "action": "VolumeDown",
+      "function": "VolumeDown",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_volumeDown",
+      "notes": ""
+    },
+    {
+      "keycode": 29,
+      "hex": "0x1D",
+      "action": "Help",
+      "function": "Help",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Help",
+      "notes": ""
+    },
+    {
+      "keycode": 30,
+      "hex": "0x1E",
+      "action": "Pip",
+      "function": "Pip",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_PIP",
+      "notes": ""
+    },
+    {
+      "keycode": 33,
+      "hex": "0x21",
+      "action": "Back",
+      "function": "Back",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Return",
+      "notes": ""
+    },
+    {
+      "keycode": 35,
+      "hex": "0x23",
+      "action": "Mute",
+      "function": "Mute",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Mute",
+      "notes": ""
+    },
+    {
+      "keycode": 36,
+      "hex": "0x24",
+      "action": "Text",
+      "function": "Text",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_VideoText",
+      "notes": ""
+    },
+    {
+      "keycode": 37,
+      "hex": "0x25",
+      "action": "Epg",
+      "function": "Epg",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_EPG",
+      "notes": ""
+    },
+    {
+      "keycode": 38,
+      "hex": "0x26",
+      "action": "Menu",
+      "function": "Menu",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "",
+      "notes": ""
+    },
+    {
+      "keycode": 39,
+      "hex": "0x27",
+      "action": "OKNEW",
+      "function": "OKNEW",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_OK",
+      "notes": ""
+    },
+    {
+      "keycode": 40,
+      "hex": "0x28",
+      "action": "Exit",
+      "function": "Exit",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Exit",
+      "notes": ""
+    },
+    {
+      "keycode": 41,
+      "hex": "0x29",
+      "action": "Rewind",
+      "function": "Rewind",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Rewind",
+      "notes": ""
+    },
+    {
+      "keycode": 42,
+      "hex": "0x2A",
+      "action": "Forward",
+      "function": "Forward",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Wind",
+      "notes": ""
+    },
+    {
+      "keycode": 43,
+      "hex": "0x2B",
+      "action": "Play",
+      "function": "Play",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Play",
+      "notes": ""
+    },
+    {
+      "keycode": 44,
+      "hex": "0x2C",
+      "action": "Stop",
+      "function": "Stop",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Stop",
+      "notes": ""
+    },
+    {
+      "keycode": 45,
+      "hex": "0x2D",
+      "action": "Record_red",
+      "function": "Record_red",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Record",
+      "notes": ""
+    },
+    {
+      "keycode": 46,
+      "hex": "0x2E",
+      "action": "ChannelPlus",
+      "function": "ChannelPlus",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_channelNext",
+      "notes": ""
+    },
+    {
+      "keycode": 47,
+      "hex": "0x2F",
+      "action": "ChannelMinus",
+      "function": "ChannelMinus",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_channelPrev",
+      "notes": ""
+    },
+    {
+      "keycode": 48,
+      "hex": "0x30",
+      "action": "Home",
+      "function": "Home",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Home",
+      "notes": ""
+    },
+    {
+      "keycode": 49,
+      "hex": "0x31",
+      "action": "Av",
+      "function": "Av",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_Source",
+      "notes": ""
+    },
+    {
+      "keycode": 51,
+      "hex": "0x33",
+      "action": "Off",
+      "function": "Off",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "",
+      "notes": ""
+    },
+    {
+      "keycode": 66,
+      "hex": "0x42",
+      "action": "Pause",
+      "function": "Pause",
+      "context": "HTML remote (rcViewMap)",
+      "evidence": "classes.dex: ButtonLayout.<clinit>; assets/RemoteControlAlternate.html",
+      "legacy_resource_name": "button_name_PurePause",
+      "notes": ""
+    },
+    {
+      "keycode": 70,
+      "hex": "0x46",
+      "action": "swipe_70",
+      "function": "Swipe gesture (direction depends on RcView mode)",
+      "context": "Legacy native remote swipe handler",
+      "evidence": "classes.dex: RcView.swipe()",
+      "legacy_resource_name": "",
+      "notes": "Numerical literal sent via RemoteControlService.sendKey; physical behavior unverified"
+    },
+    {
+      "keycode": 71,
+      "hex": "0x47",
+      "action": "swipe_71",
+      "function": "Swipe gesture (direction depends on RcView mode)",
+      "context": "Legacy native remote swipe handler",
+      "evidence": "classes.dex: RcView.swipe()",
+      "legacy_resource_name": "",
+      "notes": "Numerical literal sent via RemoteControlService.sendKey; physical behavior unverified"
+    }
+  ]
+}

@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import MetzCoordinator
 from .api import MetzError
-from .const import DOMAIN, HDMI_1_SOURCE, KEY_CODES
+from .const import DOMAIN, KEY_CODES, SOURCE_BUTTONS
 from .wol import async_send_magic_packet
 
 
@@ -29,7 +29,7 @@ async def async_setup_entry(
 
 
 class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
-    """Volume, channel steps, power toggle, and verified HDMI 1 selection."""
+    """Power, key controls and optional F1-driven source selection."""
 
     _attr_has_entity_name = True
     _attr_name = None
@@ -51,8 +51,9 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             | MediaPlayerEntityFeature.VOLUME_STEP
             | MediaPlayerEntityFeature.NEXT_TRACK
             | MediaPlayerEntityFeature.PREVIOUS_TRACK
-            | MediaPlayerEntityFeature.SELECT_SOURCE
         )
+        if runtime.f1_source_selection_button_id is not None:
+            self._attr_supported_features |= MediaPlayerEntityFeature.SELECT_SOURCE
         if runtime.mac:
             self._attr_supported_features |= MediaPlayerEntityFeature.TURN_ON
 
@@ -80,9 +81,10 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
 
     @property
     def source_list(self) -> list[str] | None:
-        # Other inputs can be identified, but only HDMI 1 has a verified
-        # switching sequence. Do not advertise unimplemented selections.
-        return [HDMI_1_SOURCE]
+        # Keep current source reporting independent of whether selecting is set up.
+        if self.runtime.f1_source_selection_button_id is None:
+            return None
+        return list(SOURCE_BUTTONS)
 
     @property
     def extra_state_attributes(self) -> dict[str, int | list[str]] | None:
@@ -103,18 +105,20 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             raise HomeAssistantError(f"Metz command failed: {err}") from err
 
     async def async_select_source(self, source: str) -> None:
-        """Select HDMI 1 using the five verified Metz remote commands."""
-        if source != HDMI_1_SOURCE:
+        """F1 → configured source-list key → numeric source shortcut."""
+        f1_id = self.runtime.f1_source_selection_button_id
+        if f1_id is None:
             raise HomeAssistantError(
-                f"Source {source!r} is not supported for switching; "
-                f"only {HDMI_1_SOURCE!r} has a verified command sequence"
+                "Configure an F1 source-selection button ID in integration options"
             )
+        if source not in SOURCE_BUTTONS:
+            raise HomeAssistantError(f"Unsupported Metz source: {source!r}")
         try:
-            await self.runtime.api.async_select_hdmi1()
+            await self.runtime.api.async_select_f1_source(source, f1_id)
         except MetzError as err:
             raise HomeAssistantError(f"Metz source selection failed: {err}") from err
         finally:
-            # Update the reported active source, even if confirmation failed.
+            # Always read the actual source from the TV, never assume the key worked.
             await self.coordinator.async_request_refresh()
 
     async def async_volume_up(self) -> None:

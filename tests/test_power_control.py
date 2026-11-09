@@ -56,7 +56,12 @@ def _load_player():
         pkgname: pkg,
         pkgname + ".api": _stub(pkgname + ".api", MetzError=DummyApiError),
         pkgname + ".const": _stub(
-            pkgname + ".const", DOMAIN="metz_remote", HDMI_1_SOURCE="HDMI 1",
+            pkgname + ".const", DOMAIN="metz_remote", SOURCE_BUTTONS={
+                "HDMI 1": (16, 1), "HDMI 2": (17, 2),
+                "HDMI 3": (18, 3), "HDMI 4": (19, 4),
+                "EURO": (20, 5), "Cinch AV": (21, 6),
+                "Cinch Audio": (22, 7),
+            },
             KEY_CODES={"power": 11},
         ),
         pkgname + ".wol": _stub(pkgname + ".wol", async_send_magic_packet=None),
@@ -115,6 +120,7 @@ def _make_player(module, *, mac="AABBCCDDEEFF", broadcast="192.168.1.255", power
         coordinator=coordinator, api=api,
         description=types.SimpleNamespace(udn="uuid:123", name="Test TV"),
         mac=mac, broadcast_address=broadcast,
+        f1_source_selection_button_id=None,
     )
     entry = types.SimpleNamespace(runtime_data=runtime)
     player = module.MetzMediaPlayer(entry)
@@ -212,3 +218,44 @@ def test_wol_packet_format_and_broadcast_target():
     assert len(payload) == 102
     assert payload == b"\xff" * 6 + bytes.fromhex("AABBCCDDEEFF") * 16
     assert target == ("192.168.1.255", 9)
+
+
+def test_source_selection_is_hidden_unless_f1_id_is_configured():
+    mod, _, HomeAssistantError = _load_player()
+    player, coord, _ = _make_player(mod)
+    coord.data.source_name = "HDMI 2"
+    # Even without a configurable F1 key, SOAP source status remains readable.
+    assert player.source == "HDMI 2"
+    assert player.source_list is None
+    assert not player._attr_supported_features & 32  # SELECT_SOURCE
+    with pytest.raises(HomeAssistantError, match="Configure an F1"):
+        asyncio.run(player.async_select_source("HDMI 1"))
+    player.runtime.f1_source_selection_button_id = 5
+    # Entity attributes are set when the config-entry is loaded, so recreate.
+    fresh, _, _ = _make_player(mod)
+    fresh.runtime.f1_source_selection_button_id = 5
+    fresh2 = mod.MetzMediaPlayer(types.SimpleNamespace(runtime_data=fresh.runtime))
+    assert fresh2._attr_supported_features & 32
+    assert fresh2.source_list == [
+        "HDMI 1", "HDMI 2", "HDMI 3", "HDMI 4",
+        "EURO", "Cinch AV", "Cinch Audio",
+    ]
+
+
+def test_source_selection_calls_three_key_macro_and_refreshes_status():
+    mod, _, _ = _load_player()
+    player, coord, api = _make_player(mod)
+    player.runtime.f1_source_selection_button_id = 5
+    coord.refreshes = []
+
+    async def refresh():
+        coord.refreshes.append(True)
+
+    async def select(source, key):
+        api.sent.append((source, key))
+
+    coord.async_request_refresh = refresh
+    api.async_select_f1_source = select
+    asyncio.run(player.async_select_source("Cinch AV"))
+    assert api.sent == [("Cinch AV", 5)]
+    assert coord.refreshes == [True]

@@ -110,60 +110,65 @@ def test_device_description() -> None:
     asyncio.run(check())
 
 
-def test_hdmi1_macro_selects_and_verifies_source() -> None:
-    """Verify exact order, skip/readback semantics and parameters."""
+def test_f1_source_macro_all_seven_inputs() -> None:
+    """For each source, send F1 → configured key → corresponding digit and verify."""
+    from metz_remote.const import SOURCE_BUTTONS
+
     async def check():
-        active = 17  # HDMI 2
-        sent = []
-        queries = []
+        for source, (target, number) in SOURCE_BUTTONS.items():
+            active = 0
+            sent = []
+            calls = []
 
-        async def handler(req):
-            nonlocal active
-            payload = ET.fromstring(await req.read())
-            method = next(iter(payload.find(f"{{{SOAP}}}Body")))
-            action = method.tag.split("}")[-1]
-            args = {c.tag: c.text for c in method}
-            queries.append(action)
-            if action == "SendKeyCode":
-                sent.append(args)
-                if len(sent) == 5:
-                    active = 16  # Simulate TV switching to HDMI 1
-                data = {}
-            elif action == "GetActiveDevice":
-                data = {"ActiveDevice": str(active)}
-            else:
-                return web.Response(status=500)
-            return web.Response(text=xml_response(action, data), content_type="text/xml")
+            async def handler(req):
+                nonlocal active
+                payload = ET.fromstring(await req.read())
+                method = next(iter(payload.find(f"{{{SOAP}}}Body")))
+                action = method.tag.split("}")[-1]
+                calls.append(action)
+                args = {child.tag: child.text for child in method}
+                if action == "SendKeyCode":
+                    sent.append(args)
+                    if len(sent) == 3:
+                        active = target
+                    values = {}
+                elif action == "GetActiveDevice":
+                    values = {"ActiveDevice": str(active)}
+                else:
+                    return web.Response(status=500)
+                return web.Response(text=xml_response(action, values), content_type="text/xml")
 
-        app = web.Application()
-        app.router.add_post("/services/rcr/control/RCRService", handler)
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "127.0.0.1", 0)
-        await site.start()
-        port = site._server.sockets[0].getsockname()[1]
-        try:
-            async with aiohttp.ClientSession() as session:
-                api = MetzClient(session, "127.0.0.1")
-                api.control_url = f"http://127.0.0.1:{port}/services/rcr/control/RCRService"
-                assert await api.async_select_hdmi1(
-                    first_key_delay=0, key_delay=0, settle_delay=0,
-                ) is True
-                assert [int(cmd["KeyCode"]) for cmd in sent] == [49, 24, 24, 39, 39]
-                assert all(cmd["DestinationDevice"] == "0" for cmd in sent)
-                assert all(cmd["ButtonHold"] == "0" for cmd in sent)
-                assert queries == ["GetActiveDevice", *["SendKeyCode"] * 5, "GetActiveDevice"]
-                assert await api.async_select_hdmi1(
-                    first_key_delay=0, key_delay=0, settle_delay=0,
-                ) is False  # Already HDMI 1: no additional remote keys
-                assert len(sent) == 5
-        finally:
-            await runner.cleanup()
+            app = web.Application()
+            app.router.add_post("/services/rcr/control/RCRService", handler)
+            runner = web.AppRunner(app)
+            await runner.setup()
+            site = web.TCPSite(runner, "127.0.0.1", 0)
+            await site.start()
+            port = site._server.sockets[0].getsockname()[1]
+            try:
+                async with aiohttp.ClientSession() as session:
+                    api = MetzClient(session, "127.0.0.1")
+                    api.control_url = f"http://127.0.0.1:{port}/services/rcr/control/RCRService"
+                    assert await api.async_select_f1_source(
+                        source, 5, first_key_delay=0,
+                        second_key_delay=0, settle_delay=0,
+                    ) is True
+                    assert [int(cmd["KeyCode"]) for cmd in sent] == [12, 5, number + 1]
+                    assert all(cmd["DestinationDevice"] == "0" for cmd in sent)
+                    assert all(cmd["ButtonHold"] == "0" for cmd in sent)
+                    assert calls == ["GetActiveDevice", "SendKeyCode", "SendKeyCode", "SendKeyCode", "GetActiveDevice"]
+                    assert await api.async_select_f1_source(
+                        source, 5, first_key_delay=0,
+                        second_key_delay=0, settle_delay=0,
+                    ) is False
+                    assert len(sent) == 3
+            finally:
+                await runner.cleanup()
+
     asyncio.run(check())
 
 
-def test_hdmi1_macro_raises_when_input_not_changed() -> None:
-    """Do not silently claim success after a failed menu sequence."""
+def test_f1_source_macro_rejects_unknown_and_mismatching_readback() -> None:
     async def check():
         async def handler(req):
             payload = ET.fromstring(await req.read())
@@ -184,19 +189,24 @@ def test_hdmi1_macro_raises_when_input_not_changed() -> None:
                 api = MetzClient(session, "127.0.0.1")
                 api.control_url = f"http://127.0.0.1:{port}/services/rcr/control/RCRService"
                 with pytest.raises(MetzError, match="HDMI 1 not confirmed"):
-                    await api.async_select_hdmi1(
-                        first_key_delay=0, key_delay=0, settle_delay=0,
-                    )
+                    await api.async_select_f1_source("HDMI 1", 5, first_key_delay=0,
+                                                     second_key_delay=0, settle_delay=0)
+                for invalid in (None, 0, 11, True, -1):
+                    with pytest.raises(MetzError, match="button ID"):
+                        await api.async_select_f1_source("HDMI 1", invalid)
+                with pytest.raises(MetzError, match="Unsupported source"):
+                    await api.async_select_f1_source("TV", 5)
         finally:
             await runner.cleanup()
+
     asyncio.run(check())
 
-
 def test_verified_direction_and_source_codes() -> None:
-    from metz_remote.const import KEY_CODES, HDMI_1_KEY_SEQUENCE
+    from metz_remote.const import KEY_CODES, SOURCE_BUTTONS
     assert [KEY_CODES[k] for k in ("up", "left", "right", "down")] == [23, 25, 26, 24]
     assert KEY_CODES["source"] == 49
-    assert HDMI_1_KEY_SEQUENCE == (49, 24, 24, 39, 39)
+    assert SOURCE_BUTTONS["HDMI 1"] == (16, 1)
+    assert SOURCE_BUTTONS["Cinch Audio"] == (22, 7)
 
 
 def test_separate_tcp_connection_for_each_soap_request() -> None:

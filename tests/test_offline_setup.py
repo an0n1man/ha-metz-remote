@@ -45,6 +45,7 @@ def setup_module_with_fake_ha():
     class Platform:
         MEDIA_PLAYER = "media_player"
         REMOTE = "remote"
+        SENSOR = "sensor"
 
     ha = mod("homeassistant")
     ha.__path__ = []
@@ -120,7 +121,7 @@ def test_offline_setup_uses_saved_udn_and_loads_entities():
     assert asyncio.run(setup.async_setup_entry(Hass(), entry)) is True
     assert entry.runtime_data.description.udn == entry.unique_id
     assert entry.runtime_data.coordinator.last_update_success is False
-    assert forwarded == ["media_player", "remote"]
+    assert forwarded == ["media_player", "remote", "sensor"]
 
 
 def test_offline_setup_does_not_invent_unverified_udn():

@@ -19,7 +19,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.ssdp import SsdpServiceInfo
 
 from .api import MetzClient, MetzDescription, MetzError
-from .const import CONF_BROADCAST, CONF_MAC, DEFAULT_BROADCAST, DOMAIN
+from .const import (
+    CONF_BROADCAST, CONF_MAC, CONF_F1_SOURCE_SELECTION_BUTTON_ID,
+    DEFAULT_BROADCAST, DOMAIN,
+)
 
 
 def _clean_mac(value: str) -> str:
@@ -54,7 +57,26 @@ def _clean_host(value: str) -> str:
     return host
 
 
-class MetzClassicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+def _clean_f1_source_button_id(value: Any) -> int | None:
+    """Validate optional raw Metz SOAP KeyCode for the F1 submenu shortcut.
+
+    The input is a SendKeyCode ID (1..10 for numeric buttons 0..9), not
+    the visible digit. Empty input disables source selection completely.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        raise ValueError("Invalid F1 button ID")
+    try:
+        keycode = int(value)
+    except (TypeError, ValueError) as err:
+        raise ValueError("Invalid F1 button ID") from err
+    if str(value).strip() != str(keycode) or not 1 <= keycode <= 10:
+        raise ValueError("F1 button ID must be a numeric Metz KeyCode (1-10)")
+    return keycode
+
+
+class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Set up by manual IP or SSDP announcement."""
 
     VERSION = 1
@@ -63,9 +85,9 @@ class MetzClassicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> MetzClassicOptionsFlow:
+    ) -> MetzRemoteOptionsFlow:
         """Allow configuring WOL for an already installed TV."""
-        return MetzClassicOptionsFlow()
+        return MetzRemoteOptionsFlow()
 
     def __init__(self) -> None:
         self._discovered_host: str | None = None
@@ -78,44 +100,53 @@ class MetzClassicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return description
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
-        """Show a form and validate the TV before creating an entry."""
+        """Set up host, Wake-on-LAN and optional F1 source-list shortcut."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 host = _clean_host(user_input[CONF_HOST])
             except ValueError:
                 errors[CONF_HOST] = "invalid_host"
-            else:
+            try:
+                mac = _clean_mac(user_input.get(CONF_MAC, ""))
+            except ValueError:
+                errors[CONF_MAC] = "invalid_mac"
+            try:
+                broadcast = _clean_broadcast(
+                    user_input.get(CONF_BROADCAST, DEFAULT_BROADCAST)
+                )
+            except ValueError:
+                errors[CONF_BROADCAST] = "invalid_broadcast"
+            try:
+                f1_id = _clean_f1_source_button_id(
+                    user_input.get(CONF_F1_SOURCE_SELECTION_BUTTON_ID)
+                )
+            except ValueError:
+                errors[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = "invalid_f1_button_id"
+            if not errors:
                 try:
-                    mac = _clean_mac(user_input.get(CONF_MAC, ""))
-                except ValueError:
-                    errors[CONF_MAC] = "invalid_mac"
+                    description = await self._probe(host)
+                except MetzError:
+                    errors["base"] = "cannot_connect"
                 else:
-                    try:
-                        broadcast = _clean_broadcast(
-                            user_input.get(CONF_BROADCAST, DEFAULT_BROADCAST)
-                        )
-                    except ValueError:
-                        errors[CONF_BROADCAST] = "invalid_broadcast"
-                    else:
-                        try:
-                            description = await self._probe(host)
-                        except MetzError:
-                            errors["base"] = "cannot_connect"
-                        else:
-                            await self.async_set_unique_id(description.udn)
-                            self._abort_if_unique_id_configured(updates={CONF_HOST: host})
-                            return self.async_create_entry(
-                                title=description.name,
-                                data={CONF_HOST: host, CONF_MAC: mac,
-                                      CONF_BROADCAST: broadcast},
-                            )
-        schema = vol.Schema({
+                    await self.async_set_unique_id(description.udn)
+                    self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+                    data = {CONF_HOST: host, CONF_MAC: mac,
+                            CONF_BROADCAST: broadcast}
+                    if f1_id is not None:
+                        data[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = f1_id
+                    return self.async_create_entry(title=description.name, data=data)
+        schema_fields = {
             vol.Required(CONF_HOST, default=self._discovered_host or ""): str,
             vol.Optional(CONF_MAC, default=""): str,
             vol.Optional(CONF_BROADCAST, default=DEFAULT_BROADCAST): str,
-        })
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+            vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=10)
+            ),
+        }
+        return self.async_show_form(
+            step_id="user", data_schema=vol.Schema(schema_fields), errors=errors
+        )
 
     async def async_step_ssdp(self, discovery_info: SsdpServiceInfo):
         """Handle discovery from Home Assistant's SSDP integration."""
@@ -134,49 +165,100 @@ class MetzClassicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_confirm()
 
     async def async_step_confirm(self, user_input: dict[str, Any] | None = None):
-        """Ask for confirmation of an SSDP-discovered TV."""
+        """Ask for optional F1 shortcut and WOL settings for discovered TVs."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(
-                title=self._discovered_description.name,
-                data={CONF_HOST: self._discovered_host, CONF_MAC: "",
-                      CONF_BROADCAST: DEFAULT_BROADCAST},
-            )
-        return self.async_show_form(step_id="confirm", data_schema=vol.Schema({}))
+            try:
+                f1_id = _clean_f1_source_button_id(
+                    user_input.get(CONF_F1_SOURCE_SELECTION_BUTTON_ID)
+                )
+            except ValueError:
+                errors[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = "invalid_f1_button_id"
+            try:
+                mac = _clean_mac(user_input.get(CONF_MAC, ""))
+            except ValueError:
+                errors[CONF_MAC] = "invalid_mac"
+            try:
+                broadcast = _clean_broadcast(
+                    user_input.get(CONF_BROADCAST, DEFAULT_BROADCAST)
+                )
+            except ValueError:
+                errors[CONF_BROADCAST] = "invalid_broadcast"
+            if not errors:
+                data = {CONF_HOST: self._discovered_host, CONF_MAC: mac,
+                        CONF_BROADCAST: broadcast}
+                if f1_id is not None:
+                    data[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = f1_id
+                return self.async_create_entry(
+                    title=self._discovered_description.name, data=data,
+                )
+        return self.async_show_form(
+            step_id="confirm", errors=errors,
+            data_schema=vol.Schema({
+                vol.Optional(CONF_MAC, default=""): str,
+                vol.Optional(CONF_BROADCAST, default=DEFAULT_BROADCAST): str,
+                vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=10)
+                ),
+            }),
+        )
 
 
-class MetzClassicOptionsFlow(config_entries.OptionsFlowWithReload):
-    """Update the WOL configuration and automatically reload the integration."""
+class MetzRemoteOptionsFlow(config_entries.OptionsFlowWithReload):
+    """Update WOL and F1 source-selection settings; reload when changed."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
-        """Set/clear MAC and configure where to send the magic packet."""
+        """Configure optional F1 shortcut without recreating the integration."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 mac = _clean_mac(user_input.get(CONF_MAC, ""))
             except ValueError:
                 errors[CONF_MAC] = "invalid_mac"
-            else:
-                try:
-                    broadcast = _clean_broadcast(
-                        user_input.get(CONF_BROADCAST, DEFAULT_BROADCAST)
-                    )
-                except ValueError:
-                    errors[CONF_BROADCAST] = "invalid_broadcast"
-                else:
-                    return self.async_create_entry(data={
-                        CONF_MAC: mac, CONF_BROADCAST: broadcast,
-                    })
+            try:
+                broadcast = _clean_broadcast(
+                    user_input.get(CONF_BROADCAST, DEFAULT_BROADCAST)
+                )
+            except ValueError:
+                errors[CONF_BROADCAST] = "invalid_broadcast"
+            try:
+                f1_id = _clean_f1_source_button_id(
+                    user_input.get(CONF_F1_SOURCE_SELECTION_BUTTON_ID)
+                )
+            except ValueError:
+                errors[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = "invalid_f1_button_id"
+            if not errors:
+                # Keep explicit None when cleared, overriding a value initially
+                # saved in entry.data on older installations.
+                data = {
+                    CONF_MAC: mac,
+                    CONF_BROADCAST: broadcast,
+                    CONF_F1_SOURCE_SELECTION_BUTTON_ID: f1_id,
+                }
+                return self.async_create_entry(data=data)
 
         entry = self.config_entry
         mac_default = entry.options.get(CONF_MAC, entry.data.get(CONF_MAC, ""))
         broadcast_default = entry.options.get(
             CONF_BROADCAST, entry.data.get(CONF_BROADCAST, DEFAULT_BROADCAST)
         )
+        f1_default = entry.options.get(
+            CONF_F1_SOURCE_SELECTION_BUTTON_ID,
+            entry.data.get(CONF_F1_SOURCE_SELECTION_BUTTON_ID),
+        )
+        schema = {
+            vol.Optional(CONF_MAC, default=mac_default): str,
+            vol.Required(CONF_BROADCAST, default=broadcast_default): str,
+        }
+        if f1_default is None:
+            schema[vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID)] = vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=10)
+            )
+        else:
+            schema[vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID,
+                                default=f1_default)] = vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=10)
+            )
         return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema({
-                vol.Optional(CONF_MAC, default=mac_default): str,
-                vol.Required(CONF_BROADCAST, default=broadcast_default): str,
-            }),
-            errors=errors,
+            step_id="init", data_schema=vol.Schema(schema), errors=errors,
         )

@@ -16,8 +16,7 @@ from xml.sax.saxutils import escape
 import aiohttp
 
 from .const import (
-    DEFAULT_PORT, DEVICE_TYPE, SERVICE_TYPE, HDMI_1_DEVICE_ID,
-    HDMI_1_KEY_SEQUENCE,
+    DEFAULT_PORT, DEVICE_TYPE, SERVICE_TYPE, KEY_CODES, SOURCE_BUTTONS,
 )
 
 SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -300,41 +299,48 @@ class MetzClient:
         async with self._command_lock:
             await self._async_send_key_unlocked(code)
 
-    async def async_select_hdmi1(
+    async def async_select_f1_source(
         self,
+        source: str,
+        button_id: int,
         *,
-        first_key_delay: float = 1.0,
-        key_delay: float = 0.65,
+        first_key_delay: float = 0.85,
+        second_key_delay: float = 0.65,
         settle_delay: float = 1.0,
     ) -> bool:
-        """Select HDMI 1 with the on-device-verified menu macro.
+        """Select via F1 -> configured SOAP KeyCode -> numeric source key.
 
-        Sequence: Source(49), Down(24), Down(24), OK(39), OK(39).
-        Returns True if switching was performed and False if already on HDMI 1.
-        Raises MetzError if the final active device cannot be confirmed.
+        The source-to-digit mapping is user-specified; actual success is
+        confirmed by the TV's GetActiveDevice response. A partially delivered
+        command is never retried automatically.
         """
+        if source not in SOURCE_BUTTONS:
+            raise MetzError(f"Unsupported source: {source!r}")
+        if type(button_id) is not int or not 1 <= button_id <= 10:
+            raise MetzError("F1 source-list button ID must be between 1 and 10")
+        expected_device, button_number = SOURCE_BUTTONS[source]
         async with self._command_lock:
             before = await self.async_action("GetActiveDevice")
             try:
                 active_device = int(before["ActiveDevice"])
             except (KeyError, ValueError) as err:
                 raise MetzError("Cannot determine current TV source") from err
-            if active_device == HDMI_1_DEVICE_ID:
+            if active_device == expected_device:
                 return False
-
-            for i, code in enumerate(HDMI_1_KEY_SEQUENCE):
-                await self._async_send_key_unlocked(code)
-                if i < len(HDMI_1_KEY_SEQUENCE) - 1:
-                    await asyncio.sleep(first_key_delay if i == 0 else key_delay)
-
+            # Metz APK: F1=12; digit_1=2, ..., digit_7=8.
+            await self._async_send_key_unlocked(KEY_CODES["f1"])
+            await asyncio.sleep(first_key_delay)
+            await self._async_send_key_unlocked(button_id)
+            await asyncio.sleep(second_key_delay)
+            await self._async_send_key_unlocked(KEY_CODES[f"digit_{button_number}"])
             await asyncio.sleep(settle_delay)
             after = await self.async_action("GetActiveDevice")
             try:
                 selected = int(after["ActiveDevice"])
             except (KeyError, ValueError) as err:
                 raise MetzError("Cannot verify TV source after switching") from err
-            if selected != HDMI_1_DEVICE_ID:
+            if selected != expected_device:
                 raise MetzError(
-                    f"HDMI 1 not confirmed: TV reports ActiveDevice={selected}"
+                    f"{source} not confirmed: TV reports ActiveDevice={selected}"
                 )
             return True

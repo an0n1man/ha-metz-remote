@@ -16,10 +16,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import (
     MetzClient, MetzConnectionError, MetzDescription, MetzError, MetzStatus,
 )
-from .const import CONF_MAC, CONF_BROADCAST, DEFAULT_BROADCAST, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_MAC, CONF_BROADCAST, CONF_F1_SOURCE_SELECTION_BUTTON_ID,
+    DEFAULT_BROADCAST, DEFAULT_SCAN_INTERVAL, DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = (Platform.MEDIA_PLAYER, Platform.REMOTE)
+PLATFORMS = (Platform.MEDIA_PLAYER, Platform.REMOTE, Platform.SENSOR)
 
 
 @dataclass
@@ -31,6 +34,7 @@ class MetzRuntime:
     coordinator: MetzCoordinator
     mac: str | None
     broadcast_address: str
+    f1_source_selection_button_id: int | None = None
 
 
 class MetzCoordinator(DataUpdateCoordinator[MetzStatus]):
@@ -90,6 +94,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         mac=(entry.options.get(CONF_MAC, entry.data.get(CONF_MAC, "")) or None),
         broadcast_address=entry.options.get(
             CONF_BROADCAST, entry.data.get(CONF_BROADCAST, DEFAULT_BROADCAST)
+        ),
+        f1_source_selection_button_id=entry.options.get(
+            CONF_F1_SOURCE_SELECTION_BUTTON_ID,
+            entry.data.get(CONF_F1_SOURCE_SELECTION_BUTTON_ID),
         ),
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
