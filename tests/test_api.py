@@ -13,11 +13,11 @@ from aiohttp import web
 import pytest
 
 # Import the standalone API module without importing Home Assistant's integration.
-COMPONENT_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "metz_classic"
-pkg = types.ModuleType("metz_classic")
+COMPONENT_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "metz_remote"
+pkg = types.ModuleType("metz_remote")
 pkg.__path__ = [str(COMPONENT_DIR)]
-sys.modules.setdefault("metz_classic", pkg)
-from metz_classic.api import MetzClient, MetzError, MetzConnectionError  # noqa: E402
+sys.modules.setdefault("metz_remote", pkg)
+from metz_remote.api import MetzClient, MetzError, MetzConnectionError  # noqa: E402
 
 NS = "urn:metz.de:service:RCRService:1"
 SOAP = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -193,7 +193,7 @@ def test_hdmi1_macro_raises_when_input_not_changed() -> None:
 
 
 def test_verified_direction_and_source_codes() -> None:
-    from metz_classic.const import KEY_CODES, HDMI_1_KEY_SEQUENCE
+    from metz_remote.const import KEY_CODES, HDMI_1_KEY_SEQUENCE
     assert [KEY_CODES[k] for k in ("up", "left", "right", "down")] == [23, 25, 26, 24]
     assert KEY_CODES["source"] == 49
     assert HDMI_1_KEY_SEQUENCE == (49, 24, 24, 39, 39)

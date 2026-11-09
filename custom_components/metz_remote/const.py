@@ -1,6 +1,6 @@
 """Constants for Metz Remote integration."""
 
-DOMAIN = "metz_classic"
+DOMAIN = "metz_remote"
 CONF_MAC = "mac"
 CONF_BROADCAST = "broadcast_address"
 DEFAULT_BROADCAST = "255.255.255.255"

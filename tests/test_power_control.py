@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1] / "custom_components" / "metz_classic"
+ROOT = Path(__file__).resolve().parents[1] / "custom_components" / "metz_remote"
 
 
 def _stub(name: str, **values):
@@ -56,7 +56,7 @@ def _load_player():
         pkgname: pkg,
         pkgname + ".api": _stub(pkgname + ".api", MetzError=DummyApiError),
         pkgname + ".const": _stub(
-            pkgname + ".const", DOMAIN="metz_classic", HDMI_1_SOURCE="HDMI 1",
+            pkgname + ".const", DOMAIN="metz_remote", HDMI_1_SOURCE="HDMI 1",
             KEY_CODES={"power": 11},
         ),
         pkgname + ".wol": _stub(pkgname + ".wol", async_send_magic_packet=None),

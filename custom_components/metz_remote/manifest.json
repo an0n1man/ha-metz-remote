@@ -1,5 +1,5 @@
 {
-  "domain": "metz_classic",
+  "domain": "metz_remote",
   "name": "Metz Remote",
   "version": "0.2.6",
   "documentation": "https://github.com/kaoh/metzctl",

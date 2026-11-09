@@ -15,7 +15,7 @@ before returning an HTTP status, the command may already have reached the TV.
 The resulting error now says that key execution is unknown. HDMI 1 sequence
 and source readback remain unchanged.
 
-Updating from any prior version: replace `custom_components/metz_classic/`
+Updating from any prior version: replace `custom_components/metz_remote/`
 and restart Home Assistant. The existing config entry is retained.
 
 ## Fix in v0.2.1 — "Server disconnected" at setup
@@ -57,7 +57,7 @@ for transport failures, not malformed XML or an unexpected device type.
 ## Branding fix in v0.2.5 (Home Assistant >= 2026.3)
 
 Home Assistant supports **local brand images** for custom integrations placed in
-`custom_components/metz_classic/brand/`. Previous packages incorrectly placed the
+`custom_components/metz_remote/brand/`. Previous packages incorrectly placed the
 images at the integration root, where they do not register as integration branding.
 
 The correct local files are:
@@ -71,7 +71,7 @@ is required for Home Assistant 2026.3 or later. The repository-root logo files
 are retained only for documentation; the new `brand/` folder is what Home Assistant
 uses. The logo is derived from the supplied Metz asset.
 
-**Update procedure:** Replace `custom_components/metz_classic/` fully with this
+**Update procedure:** Replace `custom_components/metz_remote/` fully with this
 release and **restart Home Assistant**. Browser caches can delay showing the new
 logo. You do not need to delete or re-add the existing integration.
 
@@ -119,14 +119,14 @@ target:
 
 ## Updating from v0.2.0 (manual)
 
-Replace the existing `/config/custom_components/metz_classic/` directory with the
-`custom_components/metz_classic/` folder from this ZIP, then restart Home Assistant.
+Replace the existing `/config/custom_components/metz_remote/` directory with the
+`custom_components/metz_remote/` folder from this ZIP, then restart Home Assistant.
 Do not add the integration again: the existing configuration entry and entity IDs
 are retained. The TV must be reachable by Home Assistant over TCP 49200.
 
 ## Installation (manual)
 
-1. Copy the directory `custom_components/metz_classic` into your Home Assistant configuration directory, e.g. `/config/custom_components/metz_classic/`.
+1. Copy the directory `custom_components/metz_remote` into your Home Assistant configuration directory, e.g. `/config/custom_components/metz_remote/`.
 2. Restart Home Assistant.
 3. Open **Settings → Devices & services → Add integration → Metz Remote**.
 4. Enter the TV address (e.g. `192.168.1.131`) and optionally its MAC address for Wake-on-LAN. Enable **Metz Remote zulassen** on the TV.
