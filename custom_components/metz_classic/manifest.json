@@ -1,0 +1,19 @@
+{
+  "domain": "metz_classic",
+  "name": "Metz Remote",
+  "version": "0.2.6",
+  "documentation": "https://github.com/kaoh/metzctl",
+  "codeowners": [],
+  "config_flow": true,
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "ssdp": [
+    {
+      "st": "urn:metz.de:service:RCRService:1"
+    },
+    {
+      "st": "urn:metz.de:device:RemoteControlReceiver:1"
+    }
+  ]
+}

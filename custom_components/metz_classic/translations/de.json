@@ -1,0 +1,46 @@
+{
+  "title": "Metz Remote",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Metz-Classic-Fernseher hinzufügen",
+        "description": "IP-Adresse des Fernsehers und optional dessen MAC-Adresse für Wake-on-LAN eingeben. Bei Home Assistant in Docker kann eine LAN-Broadcast-Adresse nötig sein.",
+        "data": {
+          "host": "IP-Adresse / Hostname",
+          "mac": "MAC-Adresse (optional)",
+          "broadcast_address": "Wake-on-LAN-Broadcast-Adresse"
+        }
+      },
+      "confirm": {
+        "title": "Metz-Classic-Fernseher gefunden",
+        "description": "{name} zu Home Assistant hinzufügen?"
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Metz RCRService fehlgeschlagen",
+      "invalid_host": "Ungültige IP-Adresse / Hostname",
+      "invalid_mac": "Ungültige MAC-Adresse",
+      "invalid_broadcast": "Ungültige IPv4-Broadcast-Zieladresse"
+    },
+    "abort": {
+      "already_configured": "Dieser Fernseher wurde bereits eingerichtet",
+      "cannot_connect": "Der Fernseher ist nicht erreichbar"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wake-on-LAN-Einstellungen",
+        "description": "MAC-Adresse des Fernsehers und Broadcast-Ziel festlegen. Die Integration wird anschließend neu geladen.",
+        "data": {
+          "mac": "MAC-Adresse (optional)",
+          "broadcast_address": "Wake-on-LAN-Broadcast-Adresse"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "Ungültige MAC-Adresse",
+      "invalid_broadcast": "Ungültige IPv4-Broadcast-Zieladresse"
+    }
+  }
+}

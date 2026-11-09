@@ -1,0 +1,340 @@
+"""Async Metz Classic UPnP/SOAP protocol client.
+
+Only the device's advertised service and confirmed action names are used.
+This module intentionally has no dependency on Home Assistant, making it testable.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from contextlib import suppress
+from dataclasses import dataclass
+from urllib.parse import urljoin, urlsplit
+from xml.etree import ElementTree as ET
+from xml.sax.saxutils import escape
+
+import aiohttp
+
+from .const import (
+    DEFAULT_PORT, DEVICE_TYPE, SERVICE_TYPE, HDMI_1_DEVICE_ID,
+    HDMI_1_KEY_SEQUENCE,
+)
+
+SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
+DEVICE_NS = "urn:schemas-upnp-org:device-1-0"
+DEFAULT_CONTROL_PATH = "/services/rcr/control/RCRService"
+# The TV's old UPnP HTTP stack may close a socket immediately after a response.
+# The Android remote also uses a fresh TCP connection for each command.
+NO_KEEPALIVE_HEADERS = {"Connection": "close"}
+READ_ONLY_ACTIONS = frozenset({
+    "GetOperationMode", "GetDeviceList", "GetPowerState", "GetActiveDevice",
+})
+
+
+class MetzError(Exception):
+    """Metz communication or invalid device response."""
+
+
+class MetzConnectionError(MetzError):
+    """The TV did not answer a network request (possibly sleeping)."""
+
+
+@dataclass(frozen=True)
+class MetzDescription:
+    """Description supplied by the television."""
+
+    udn: str
+    name: str
+    control_url: str
+
+
+@dataclass(frozen=True)
+class MetzStatus:
+    """Values provided by RCRService; no undocumented interpretation here."""
+
+    operation_mode: int
+    power_state: int
+    active_device: int
+    devices: dict[int, str]
+
+    @property
+    def source_name(self) -> str | None:
+        """Return the friendly name for the reported active device."""
+        return self.devices.get(self.active_device)
+
+
+class MetzClient:
+    """Small non-blocking client for the Metz Classic remote protocol."""
+
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        host: str,
+        control_url: str | None = None,
+    ) -> None:
+        self.session = session
+        self.host = host
+        self.base_url = f"http://{host}:{DEFAULT_PORT}"
+        self.control_url = control_url or self.base_url + DEFAULT_CONTROL_PATH
+        # Prevent other remote commands from interrupting a source-selection macro.
+        self._command_lock = asyncio.Lock()
+
+    async def async_description(self) -> MetzDescription:
+        """Fetch and validate the manufacturer's UPnP description."""
+        url = self.base_url + "/description.xml"
+        try:
+            async with self.session.get(
+                url,
+                headers=NO_KEEPALIVE_HEADERS,
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as response:
+                response.raise_for_status()
+                data = await response.read()
+            root = ET.fromstring(data)
+        except aiohttp.ClientResponseError as err:
+            raise MetzError(f"HTTP error reading device description: {err}") from err
+        except (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError, TimeoutError) as err:
+            raise MetzConnectionError(f"Cannot read device description: {err}") from err
+        except aiohttp.ClientError as err:
+            raise MetzError(f"Error reading device description: {err}") from err
+        except ET.ParseError as err:
+            raise MetzError(f"Invalid UPnP device description: {err}") from err
+
+        device = root.find(f".//{{{DEVICE_NS}}}device")
+        if device is None or device.findtext(f"{{{DEVICE_NS}}}deviceType") != DEVICE_TYPE:
+            raise MetzError("Device is not a Metz RemoteControlReceiver")
+        udn = device.findtext(f"{{{DEVICE_NS}}}UDN")
+        if not udn:
+            raise MetzError("UPnP description has no device identifier (UDN)")
+        name = device.findtext(f"{{{DEVICE_NS}}}friendlyName") or "Metz TV"
+        for service in device.findall(f".//{{{DEVICE_NS}}}service"):
+            if service.findtext(f"{{{DEVICE_NS}}}serviceType") != SERVICE_TYPE:
+                continue
+            path = service.findtext(f"{{{DEVICE_NS}}}controlURL")
+            if not path:
+                raise MetzError("RCRService has no control URL")
+            control_url = urljoin(self.base_url + "/", path)
+            # Never follow arbitrary URLs from a misconfigured/untrusted TV.
+            if not control_url.startswith(self.base_url + "/"):
+                raise MetzError("RCRService control URL points to another host")
+            self.control_url = control_url
+            return MetzDescription(udn=udn, name=name, control_url=control_url)
+        raise MetzError("UPnP device does not advertise RCRService")
+
+    async def async_action(
+        self, action: str, arguments: dict[str, int] | None = None
+    ) -> dict[str, str]:
+        """Invoke a SOAP action and parse the response.
+
+        For this TV we disable HTTP keep-alive for *every* request. A read-only
+        action may be retried once after an interrupted connection; SendKeyCode
+        must never be replayed since a TV may have applied the key already.
+        """
+        permitted = READ_ONLY_ACTIONS | {"SendKeyCode"}
+        if action not in permitted:
+            raise MetzError(f"Unsupported SOAP action {action}")
+        if action == "SendKeyCode":
+            # A full aiohttp response parse can fail on the Metz UPnP server.
+            # Use the metzctl-compatible raw request and read only the status.
+            args = arguments or {}
+            code = args.get("KeyCode")
+            if (not isinstance(code, int) or isinstance(code, bool)
+                    or not 0 <= code <= 0xFFFFFFFF
+                    or args.get("DestinationDevice") != 0
+                    or args.get("ButtonHold") != 0):
+                raise MetzError("Invalid SendKeyCode arguments")
+            await self._async_raw_key(code)
+            return {}
+        fields = "".join(
+            f"<{name}>{escape(str(value))}</{name}>"
+            for name, value in (arguments or {}).items()
+        )
+        xml = (
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
+            's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">'
+            f'<s:Body><u:{action} xmlns:u="{SERVICE_TYPE}">'
+            f'{fields}</u:{action}></s:Body></s:Envelope>'
+        ).encode("utf-8")
+        headers = {
+            **NO_KEEPALIVE_HEADERS,
+            "SOAPAction": f'"{SERVICE_TYPE}#{action}"',
+            "Content-Type": 'text/xml; charset="utf-8"',
+        }
+        attempts = 2 if action in READ_ONLY_ACTIONS else 1
+        for attempt in range(attempts):
+            try:
+                async with self.session.post(
+                    self.control_url,
+                    data=xml,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=5),
+                ) as response:
+                    data = await response.read()
+                    if response.status != 200:
+                        raise MetzError(
+                            f"SOAP {action} returned HTTP {response.status}: "
+                            f"{data[:300].decode(errors='replace')}"
+                        )
+                root = ET.fromstring(data)
+                break
+            except aiohttp.ClientConnectionError as err:
+                if attempt + 1 < attempts:
+                    await asyncio.sleep(0.2)
+                    continue
+                raise MetzError(f"SOAP {action} failed: {err}") from err
+            except (aiohttp.ClientError, TimeoutError, ET.ParseError) as err:
+                raise MetzError(f"SOAP {action} failed: {err}") from err
+        body = root.find(f"{{{SOAP_NS}}}Body")
+        if body is None:
+            raise MetzError(f"SOAP {action} response has no Body")
+        if body.find(f"{{{SOAP_NS}}}Fault") is not None:
+            raise MetzError(f"SOAP {action} returned a Fault")
+        result = next(iter(body), None)
+        if result is None or result.tag.split("}")[-1] != f"{action}Response":
+            raise MetzError(f"SOAP {action} response does not contain {action}Response")
+        return {child.tag.split("}")[-1]: child.text or "" for child in result}
+
+    async def _async_raw_key(self, code: int) -> None:
+        """Send exactly one key using the known working metzctl wire format.
+
+        Read only HTTP status line (not full SOAP body). This avoids an old TV
+        disconnect during body parsing. Never retry: the key may have arrived.
+        """
+        url = urlsplit(self.control_url)
+        host = url.hostname
+        port = url.port or DEFAULT_PORT
+        if url.scheme != "http" or not host or not url.path:
+            raise MetzError("Invalid Metz control endpoint")
+        path = url.path + (f"?{url.query}" if url.query else "")
+        # Deliberately match the working metzctl payload, including whitespace.
+        payload = f"""<?xml version="1.0" encoding="utf-8"?>
+  <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+    <s:Body>
+      <u:SendKeyCode xmlns:u="urn:metz.de:service:RCRService:1">
+        <KeyCode>{code}</KeyCode>
+        <DestinationDevice>0</DestinationDevice>
+        <ButtonHold>0</ButtonHold>
+      </u:SendKeyCode>
+    </s:Body>
+  </s:Envelope>""".encode("utf-8")
+        headers = (
+            f"POST {path} HTTP/1.1\r\n"
+            f"Host: {host}:{port}\r\n"
+            f'SOAPAction: "{SERVICE_TYPE}#SendKeyCode"\r\n'
+            'Content-Type: text/xml; charset="utf-8"\r\n'
+            f"Content-Length: {len(payload)}\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+        ).encode("ascii")
+
+        writer = None
+        try:
+            async def _send_once() -> bytes:
+                nonlocal writer
+                reader, writer = await asyncio.open_connection(host, port)
+                writer.write(headers + payload)
+                await writer.drain()
+                return await reader.readline()
+
+            status_line = await asyncio.wait_for(_send_once(), timeout=5)
+            if not status_line:
+                raise MetzError(
+                    f"SOAP SendKeyCode({code}): disconnected before HTTP status; "
+                    "key execution is unknown"
+                )
+            parts = status_line.decode("latin-1", errors="replace").split()
+            if len(parts) < 2 or not parts[0].startswith("HTTP/"):
+                raise MetzError(
+                    f"SOAP SendKeyCode({code}): invalid HTTP status "
+                    f"{status_line[:120]!r}"
+                )
+            if parts[1] != "200":
+                raise MetzError(
+                    f"SOAP SendKeyCode({code}): HTTP {parts[1]} "
+                    "(key execution is unknown)"
+                )
+        except (OSError, TimeoutError, asyncio.IncompleteReadError) as err:
+            raise MetzError(
+                f"SOAP SendKeyCode({code}) transport failure: {err}; "
+                "key execution is unknown"
+            ) from err
+        finally:
+            if writer is not None:
+                writer.close()
+                # Ignore a late reset after the HTTP status was received.
+                with suppress(OSError, TimeoutError):
+                    await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+
+    async def async_status(self) -> MetzStatus:
+        """Read all status information the service exposes (no modifications)."""
+        devices = await self.async_action("GetDeviceList")
+        mode = await self.async_action("GetOperationMode")
+        raw_list = devices.get("DeviceList", "").split(";")
+        device_names: dict[int, str] = {}
+        for i in range(0, len(raw_list) - 1, 2):
+            try:
+                device_names[int(raw_list[i], 0)] = raw_list[i + 1]
+            except ValueError:
+                continue
+        try:
+            return MetzStatus(
+                operation_mode=int(mode["OperationMode"]),
+                active_device=int(devices["ActiveDevice"]),
+                power_state=int(devices["PowerState"]),
+                devices=device_names,
+            )
+        except (KeyError, ValueError) as err:
+            raise MetzError(f"Invalid status response: {err}") from err
+
+    async def _async_send_key_unlocked(self, code: int) -> None:
+        """Send one key. The caller must hold the command lock."""
+        await self.async_action("SendKeyCode", {
+            "KeyCode": code, "DestinationDevice": 0, "ButtonHold": 0,
+        })
+
+    async def async_key(self, code: int) -> None:
+        """Send an RCRService remote key, serialized with macro execution."""
+        if not isinstance(code, int) or not 0 <= code <= 0xFFFFFFFF:
+            raise MetzError("Key code must be an unsigned 32-bit integer")
+        async with self._command_lock:
+            await self._async_send_key_unlocked(code)
+
+    async def async_select_hdmi1(
+        self,
+        *,
+        first_key_delay: float = 1.0,
+        key_delay: float = 0.65,
+        settle_delay: float = 1.0,
+    ) -> bool:
+        """Select HDMI 1 with the on-device-verified menu macro.
+
+        Sequence: Source(49), Down(24), Down(24), OK(39), OK(39).
+        Returns True if switching was performed and False if already on HDMI 1.
+        Raises MetzError if the final active device cannot be confirmed.
+        """
+        async with self._command_lock:
+            before = await self.async_action("GetActiveDevice")
+            try:
+                active_device = int(before["ActiveDevice"])
+            except (KeyError, ValueError) as err:
+                raise MetzError("Cannot determine current TV source") from err
+            if active_device == HDMI_1_DEVICE_ID:
+                return False
+
+            for i, code in enumerate(HDMI_1_KEY_SEQUENCE):
+                await self._async_send_key_unlocked(code)
+                if i < len(HDMI_1_KEY_SEQUENCE) - 1:
+                    await asyncio.sleep(first_key_delay if i == 0 else key_delay)
+
+            await asyncio.sleep(settle_delay)
+            after = await self.async_action("GetActiveDevice")
+            try:
+                selected = int(after["ActiveDevice"])
+            except (KeyError, ValueError) as err:
+                raise MetzError("Cannot verify TV source after switching") from err
+            if selected != HDMI_1_DEVICE_ID:
+                raise MetzError(
+                    f"HDMI 1 not confirmed: TV reports ActiveDevice={selected}"
+                )
+            return True

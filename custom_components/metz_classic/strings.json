@@ -1,0 +1,46 @@
+{
+  "title": "Metz Remote",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Metz Remote",
+        "description": "Enter the TV address and optionally its MAC address for Wake-on-LAN. If Home Assistant runs in Docker, you may need to specify your LAN broadcast address.",
+        "data": {
+          "host": "TV IP address / hostname",
+          "mac": "MAC address (optional)",
+          "broadcast_address": "Wake-on-LAN broadcast address"
+        }
+      },
+      "confirm": {
+        "title": "Discovered Metz Remote",
+        "description": "Add {name} to Home Assistant?"
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to a Metz RCRService TV",
+      "invalid_host": "Invalid IP address / hostname",
+      "invalid_mac": "Invalid MAC address",
+      "invalid_broadcast": "Invalid IPv4 broadcast destination"
+    },
+    "abort": {
+      "already_configured": "This TV is already configured",
+      "cannot_connect": "Cannot contact this TV"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wake-on-LAN settings",
+        "description": "Set the TV MAC address and broadcast destination. Changes reload the integration.",
+        "data": {
+          "mac": "MAC address (optional)",
+          "broadcast_address": "Wake-on-LAN broadcast address"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "Invalid MAC address",
+      "invalid_broadcast": "Invalid IPv4 broadcast destination"
+    }
+  }
+}
