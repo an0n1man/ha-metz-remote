@@ -14,8 +14,8 @@ DEFAULT_SCAN_INTERVAL = 15
 # This preserves existing 0.3.1 config entries without a migration.
 CONF_F1_SOURCE_SELECTION_BUTTON_ID = "f1_source_selection_button_id"
 
-# TV-reported input IDs and the numbered buttons in the F1 source list.
-# Explicitly excludes the internal tuner (0x00), as requested.
+# TV-reported input IDs and the fixed numbered buttons in the F1 source list.
+# The internal tuner (0x00) is deliberately not selectable.
 SOURCE_BUTTONS: dict[str, tuple[int, int]] = {
     "HDMI 1": (0x10, 1),
     "HDMI 2": (0x11, 2),

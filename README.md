@@ -1,13 +1,31 @@
 # Metz Remote — Home Assistant custom integration
 
-Version **0.3.4**: active source status uses only the TV-supplied name from `GetDeviceList`. The integration and device names remain `Metz Remote` and `TV`. No reconfiguration required.
+Version **0.3.5**: F1 source selection uses the fixed Metz source-button mapping. No per-source configuration is required.
 
 Experimental Home Assistant custom integration for **Metz Remote**, package
-version **0.3.4**, domain `metz_remote`.
+version **0.3.5**, domain `metz_remote`.
 
 The communication is local: the TV advertises `RCRService:1` SOAP on TCP 49200.
 It was discovered and the basics were tested with an actual Metz TV; this
-version's **new** F1 source-list workflow has not yet been validated on that TV.
+version's F1 source-button mapping has been confirmed by the user.
+
+## v0.3.5 - Fixed F1 source-button mapping
+
+The F1 source list uses these fixed visible button IDs:
+
+| Button | Source      | Expected ActiveDevice |
+| -----: | ----------- | --------------------: |
+|      1 | HDMI 1      |           `0x10` (16) |
+|      2 | HDMI 2      |           `0x11` (17) |
+|      3 | HDMI 3      |           `0x12` (18) |
+|      4 | HDMI 4      |           `0x13` (19) |
+|      5 | EURO        |           `0x14` (20) |
+|      6 | Cinch AV    |           `0x15` (21) |
+|      7 | Cinch Audio |           `0x16` (22) |
+
+The integration sends the matching button for every source, waits three
+seconds, then reads `GetActiveDevice` and `GetDeviceList`. The TV-reported
+active device name must match the selected source.
 
 
 ## v0.3.4 — Active source uses the TV-reported name
@@ -54,18 +72,8 @@ are unchanged.
   confirmation and the integration's **Configure** (options) screen, alongside
   MAC address and Wake-on-LAN broadcast address. Options updates reload the
   integration automatically.
-- **Only when configured:** the player exposes the `SELECT_SOURCE` feature
-  and this list of seven targets:
-
-| Source | Source menu digit | SOAP digit KeyCode | Expected ActiveDevice |
-|---|---:|---:|---:|
-| HDMI 1 | 1 | 2 | `0x10` (16) |
-| HDMI 2 | 2 | 3 | `0x11` (17) |
-| HDMI 3 | 3 | 4 | `0x12` (18) |
-| HDMI 4 | 4 | 5 | `0x13` (19) |
-| EURO | 5 | 6 | `0x14` (20) |
-| Cinch AV | 6 | 7 | `0x15` (21) |
-| Cinch Audio | 7 | 8 | `0x16` (22) |
+- **Only when configured:** the player exposes `SELECT_SOURCE` with all seven
+  fixed targets: HDMI 1 through Cinch Audio (`0x10` through `0x16`).
 
 ### F1 source-selection sequence
 
@@ -74,7 +82,7 @@ The integration transmits exactly three button commands:
 1. `F1` — SOAP `SendKeyCode(12)`
 2. **Configured F1 source-selection digit (0–9)** — the integration sends the
    corresponding SOAP key code (`digit + 1`) to open the source list after F1
-3. Numeric source button — e.g., HDMI 2 means `digit_2` = `SendKeyCode(3)`
+3. Fixed numeric source button for the selected target
 
 The configuration field accepts the **visible digit 0–9**, not its SOAP key code. Existing
 v0.3.1 configurations remain compatible: the persisted setting is still the

@@ -6,6 +6,7 @@ import asyncio
 import sys
 import types
 from pathlib import Path
+from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
 import aiohttp
@@ -111,7 +112,7 @@ def test_device_description() -> None:
 
 
 def test_f1_source_macro_all_seven_inputs() -> None:
-    """For each source, send F1 → configured key → corresponding digit and verify."""
+    """For each source, send F1 → configured key → fixed digit and verify."""
     from metz_remote.const import SOURCE_BUTTONS
 
     async def check():
@@ -134,6 +135,8 @@ def test_f1_source_macro_all_seven_inputs() -> None:
                     values = {}
                 elif action == "GetActiveDevice":
                     values = {"ActiveDevice": str(active)}
+                elif action == "GetDeviceList":
+                    values = {"DeviceList": f"0x{target:02X};{source};"}
                 else:
                     return web.Response(status=500)
                 return web.Response(text=xml_response(action, values), content_type="text/xml")
@@ -156,7 +159,10 @@ def test_f1_source_macro_all_seven_inputs() -> None:
                     assert [int(cmd["KeyCode"]) for cmd in sent] == [12, 5, number + 1]
                     assert all(cmd["DestinationDevice"] == "0" for cmd in sent)
                     assert all(cmd["ButtonHold"] == "0" for cmd in sent)
-                    assert calls == ["GetActiveDevice", "SendKeyCode", "SendKeyCode", "SendKeyCode", "GetActiveDevice"]
+                    assert calls == [
+                        "GetActiveDevice", "SendKeyCode", "SendKeyCode",
+                        "SendKeyCode", "GetActiveDevice", "GetDeviceList",
+                    ]
                     assert await api.async_select_f1_source(
                         source, 5, first_key_delay=0,
                         second_key_delay=0, settle_delay=0,
@@ -170,11 +176,20 @@ def test_f1_source_macro_all_seven_inputs() -> None:
 
 def test_f1_source_macro_rejects_unknown_and_mismatching_readback() -> None:
     async def check():
+        active_device_reads = 0
+
         async def handler(req):
+            nonlocal active_device_reads
             payload = ET.fromstring(await req.read())
             method = next(iter(payload.find(f"{{{SOAP}}}Body")))
             action = method.tag.split("}")[-1]
-            values = {"ActiveDevice": "17"} if action == "GetActiveDevice" else {}
+            if action == "GetActiveDevice":
+                active_device_reads += 1
+                values = {"ActiveDevice": "17" if active_device_reads == 1 else "16"}
+            elif action == "GetDeviceList":
+                values = {"DeviceList": "0x10;Wrong input name;"}
+            else:
+                values = {}
             return web.Response(text=xml_response(action, values), content_type="text/xml")
 
         app = web.Application()
@@ -201,12 +216,53 @@ def test_f1_source_macro_rejects_unknown_and_mismatching_readback() -> None:
 
     asyncio.run(check())
 
+
+def test_f1_source_macro_waits_three_seconds_before_name_verification() -> None:
+    async def check():
+        api = MetzClient(object(), "127.0.0.1")
+        actions = []
+        sent = []
+        delays = []
+
+        async def action(name, arguments=None):
+            actions.append(name)
+            if name == "GetActiveDevice":
+                return {"ActiveDevice": "16" if len(sent) == 3 else "17"}
+            if name == "GetDeviceList":
+                return {"DeviceList": "0x10;HDMI 1;"}
+            raise AssertionError(f"Unexpected action: {name}")
+
+        async def send_key(code):
+            sent.append(code)
+
+        async def sleep(delay):
+            delays.append(delay)
+
+        api.async_action = action
+        api._async_send_key_unlocked = send_key
+        with patch("metz_remote.api.asyncio.sleep", new=sleep):
+            assert await api.async_select_f1_source("HDMI 1", 5) is True
+
+        assert sent == [12, 5, 2]
+        assert delays == [0.85, 0.65, 3.0]
+        assert actions == ["GetActiveDevice", "GetActiveDevice", "GetDeviceList"]
+
+    asyncio.run(check())
+
+
 def test_verified_direction_and_source_codes() -> None:
     from metz_remote.const import KEY_CODES, SOURCE_BUTTONS
     assert [KEY_CODES[k] for k in ("up", "left", "right", "down")] == [23, 25, 26, 24]
     assert KEY_CODES["source"] == 49
-    assert SOURCE_BUTTONS["HDMI 1"] == (16, 1)
-    assert SOURCE_BUTTONS["Cinch Audio"] == (22, 7)
+    assert SOURCE_BUTTONS == {
+        "HDMI 1": (16, 1),
+        "HDMI 2": (17, 2),
+        "HDMI 3": (18, 3),
+        "HDMI 4": (19, 4),
+        "EURO": (20, 5),
+        "Cinch AV": (21, 6),
+        "Cinch Audio": (22, 7),
+    }
 
 
 def test_separate_tcp_connection_for_each_soap_request() -> None:

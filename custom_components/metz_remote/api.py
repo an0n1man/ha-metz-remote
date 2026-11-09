@@ -30,6 +30,21 @@ READ_ONLY_ACTIONS = frozenset({
 })
 
 
+def _parse_device_list(value: str) -> dict[int, str]:
+    """Parse TV-supplied input IDs and names from GetDeviceList."""
+    raw_list = value.split(";")
+    device_names: dict[int, str] = {}
+    for index in range(0, len(raw_list) - 1, 2):
+        try:
+            device_id = int(raw_list[index].strip(), 0)
+        except ValueError:
+            continue
+        device_name = raw_list[index + 1].strip()
+        if device_name:
+            device_names[device_id] = device_name
+    return device_names
+
+
 class MetzError(Exception):
     """Metz communication or invalid device response."""
 
@@ -281,18 +296,7 @@ class MetzClient:
         """Read all status information the service exposes (no modifications)."""
         devices = await self.async_action("GetDeviceList")
         mode = await self.async_action("GetOperationMode")
-        raw_list = devices.get("DeviceList", "").split(";")
-        device_names: dict[int, str] = {}
-        for i in range(0, len(raw_list) - 1, 2):
-            try:
-                device_id = int(raw_list[i].strip(), 0)
-            except ValueError:
-                continue
-            # Preserve the exact TV-provided input label (apart from padding).
-            # A missing name should remain unknown, never be guessed from IDs.
-            device_name = raw_list[i + 1].strip()
-            if device_name:
-                device_names[device_id] = device_name
+        device_names = _parse_device_list(devices.get("DeviceList", ""))
         try:
             return MetzStatus(
                 operation_mode=int(mode["OperationMode"]),
@@ -323,13 +327,13 @@ class MetzClient:
         *,
         first_key_delay: float = 0.85,
         second_key_delay: float = 0.65,
-        settle_delay: float = 1.0,
+        settle_delay: float = 3.0,
     ) -> bool:
         """Select via F1 -> configured SOAP KeyCode -> numeric source key.
 
-        The source-to-digit mapping is user-specified; actual success is
-        confirmed by the TV's GetActiveDevice response. A partially delivered
-        command is never retried automatically.
+        After a three-second settle period, the TV's active device ID and
+        name are read with GetActiveDevice and GetDeviceList. A partially
+        delivered command is never retried automatically.
         """
         if source not in SOURCE_BUTTONS:
             raise MetzError(f"Unsupported source: {source!r}")
@@ -356,8 +360,13 @@ class MetzClient:
                 selected = int(after["ActiveDevice"])
             except (KeyError, ValueError) as err:
                 raise MetzError("Cannot verify TV source after switching") from err
-            if selected != expected_device:
+            devices = await self.async_action("GetDeviceList")
+            selected_name = _parse_device_list(
+                devices.get("DeviceList", "")
+            ).get(selected)
+            if selected != expected_device or selected_name != source:
                 raise MetzError(
-                    f"{source} not confirmed: TV reports ActiveDevice={selected}"
+                    f"{source} not confirmed: TV reports ActiveDevice={selected}, "
+                    f"name={selected_name!r}"
                 )
             return True
