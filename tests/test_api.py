@@ -371,3 +371,19 @@ def test_bad_description_is_not_offline_error() -> None:
         finally:
             await runner.cleanup()
     asyncio.run(check())
+
+
+def test_device_name_lookup_uses_tv_labels_not_hardcoded_ids():
+    from metz_remote.api import MetzStatus
+
+    status = MetzStatus(
+        operation_mode=1, power_state=0, active_device=16,
+        devices={0: " TV-Tuner ", 16: " Blu-ray-Player ", 17: "Wohnzimmer-Konsole"},
+    )
+    assert status.get_device_name(16) == "Blu-ray-Player"
+    assert status.source_name == "Blu-ray-Player"
+    assert status.get_device_name(17) == "Wohnzimmer-Konsole"
+    assert status.get_device_name(0) == "TV-Tuner"
+    assert status.get_device_name(19) is None
+    assert MetzStatus(1, 0, 19, status.devices).source_name is None
+    assert MetzStatus(1, 0, 16, {16: "   "}).source_name is None

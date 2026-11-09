@@ -1,4 +1,4 @@
-"""Read-only Metz Classic active input sensor."""
+"""Read-only Metz Remote active input sensor."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ class MetzBaseSensor(CoordinatorEntity[MetzCoordinator], SensorEntity):
             identifiers={(DOMAIN, runtime.description.udn)},
             manufacturer="Metz",
             model="Metz Remote",
-            name=runtime.description.name,
+            name="TV",
         )
 
 
@@ -63,10 +63,10 @@ class MetzSourceSensor(MetzBaseSensor):
         status = self.coordinator.data
         if status.power_state != 0:
             return None
-        return status.source_name or f"Device {status.active_device}"
+        return status.source_name
 
     @property
-    def extra_state_attributes(self) -> dict[str, int | str] | None:
+    def extra_state_attributes(self) -> dict[str, int | str | None] | None:
         """Expose both friendly name and numeric source for automation."""
         if not self.coordinator.last_update_success or self.coordinator.data is None:
             return None
@@ -74,6 +74,6 @@ class MetzSourceSensor(MetzBaseSensor):
         return {
             "active_device_id": status.active_device,
             "active_device_hex": f"0x{status.active_device:02X}",
-            "source": status.source_name or "Unknown",
+            "source": status.source_name,
         }
 

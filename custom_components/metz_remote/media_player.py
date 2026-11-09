@@ -44,7 +44,7 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             identifiers={(DOMAIN, runtime.description.udn)},
             manufacturer="Metz",
             model="Metz Remote",
-            name=runtime.description.name,
+            name="TV",
         )
         self._attr_supported_features = (
             MediaPlayerEntityFeature.TURN_OFF

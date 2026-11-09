@@ -169,7 +169,7 @@ def test_options_override_initial_wol_configuration():
 
     class Entry:
         unique_id = "uuid:known"
-        title = "Metz TV"
+        title = "TV"
         data = {"host": "192.168.1.131", "mac": ""}
         options = {"mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255"}
 

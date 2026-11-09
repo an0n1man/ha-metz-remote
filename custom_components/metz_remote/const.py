@@ -1,4 +1,4 @@
-"""Constants and APK-derived remote-control key mappings for Metz Classic."""
+"""Constants and APK-derived remote-control key mappings for Metz Remote."""
 
 DOMAIN = "metz_remote"
 CONF_MAC = "mac"
@@ -9,8 +9,9 @@ SERVICE_TYPE = "urn:metz.de:service:RCRService:1"
 DEVICE_TYPE = "urn:metz.de:device:RemoteControlReceiver:1"
 DEFAULT_SCAN_INTERVAL = 15
 
-# Optional SOAP key ID to press after F1 to open the TV's source list.
-# It is the RCRService KeyCode, NOT the printed digit: digit_1 is KeyCode 2.
+# Stored setting: SOAP key ID to press after F1 to open the TV's source list.
+# UI displays printed digit 0..9; config_flow stores digit + 1 (SOAP ID 1..10).
+# This preserves existing 0.3.1 config entries without a migration.
 CONF_F1_SOURCE_SELECTION_BUTTON_ID = "f1_source_selection_button_id"
 
 # TV-reported input IDs and the numbered buttons in the F1 source list.

@@ -9,20 +9,20 @@
           "host": "TV IP address / hostname",
           "mac": "MAC address (optional)",
           "broadcast_address": "Wake-on-LAN broadcast address",
-          "f1_source_selection_button_id": "F1 source-selection button ID (optional)"
+          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Raw Metz SendKeyCode ID of the numeric button that opens the source list after F1 (1–10). Example: digit 1 = ID 2. Leave blank to disable source selection."
+          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection."
         }
       },
       "confirm": {
         "title": "Discovered Metz Remote",
         "description": "Add {name} to Home Assistant?",
         "data": {
-          "f1_source_selection_button_id": "F1 source-selection button ID (optional)"
+          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Raw Metz SendKeyCode ID of the numeric button that opens the source list after F1 (1–10). Example: digit 1 = ID 2. Leave blank to disable source selection."
+          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection."
         }
       }
     },
@@ -31,7 +31,7 @@
       "invalid_host": "Invalid IP address / hostname",
       "invalid_mac": "Invalid MAC address",
       "invalid_broadcast": "Invalid IPv4 broadcast destination",
-      "invalid_f1_button_id": "Invalid F1 button ID (valid keycodes: 1-10)"
+      "invalid_f1_button_id": "Invalid F1 source-menu button (valid: 0–9)"
     },
     "abort": {
       "already_configured": "This TV is already configured",
@@ -41,22 +41,22 @@
   "options": {
     "step": {
       "init": {
-        "title": "Metz TV settings",
+        "title": "TV settings",
         "description": "Configure WOL and the optional F1 source-selection shortcut; the integration reloads when changed.",
         "data": {
           "mac": "MAC address (optional)",
           "broadcast_address": "Wake-on-LAN broadcast address",
-          "f1_source_selection_button_id": "F1 source-selection button ID (optional)"
+          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Raw Metz SendKeyCode ID of the numeric button that opens the source list after F1 (1–10). Example: digit 1 = ID 2. Leave blank to disable source selection."
+          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection."
         }
       }
     },
     "error": {
       "invalid_mac": "Invalid MAC address",
       "invalid_broadcast": "Invalid IPv4 broadcast destination",
-      "invalid_f1_button_id": "Invalid F1 button ID (valid keycodes: 1-10)"
+      "invalid_f1_button_id": "Invalid F1 source-menu button (valid: 0–9)"
     }
   },
   "entity": {

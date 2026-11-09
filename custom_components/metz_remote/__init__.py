@@ -53,7 +53,7 @@ class MetzCoordinator(DataUpdateCoordinator[MetzStatus]):
         try:
             return await self.api.async_status()
         except MetzError as err:
-            raise UpdateFailed(f"Cannot reach Metz TV: {err}") from err
+            raise UpdateFailed(f"Cannot reach TV: {err}") from err
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -67,20 +67,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # is safe to register its entities without contacting the sleeping TV.
         # Never invent identity for an entry that was not previously verified.
         if not entry.unique_id:
-            raise ConfigEntryNotReady(f"Metz TV unreachable: {err}") from err
+            raise ConfigEntryNotReady(f"TV unreachable: {err}") from err
         _LOGGER.info(
-            "Metz TV at %s is offline during setup; loading saved device %s",
+            "TV at %s is offline during setup; loading saved device %s",
             entry.data[CONF_HOST], entry.unique_id,
         )
         description = MetzDescription(
             udn=entry.unique_id,
-            name=entry.title or "Metz TV",
+            name=entry.title,
             control_url=api.control_url,
         )
     except MetzError as err:
         # Wrong device, invalid XML, or an incompatible service should still
         # be diagnosed rather than silently treated as normal TV standby.
-        raise ConfigEntryNotReady(f"Metz TV description invalid: {err}") from err
+        raise ConfigEntryNotReady(f"TV description invalid: {err}") from err
 
     coordinator = MetzCoordinator(hass, api)
     # A startup poll may fail while the TV is asleep. async_refresh records

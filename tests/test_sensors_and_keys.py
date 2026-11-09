@@ -94,6 +94,7 @@ def test_active_source_readback_uses_coordinator_and_device_list():
     assert source.native_value == "HDMI 1"
     assert source.extra_state_attributes["active_device_id"] == 16
     assert source.extra_state_attributes["active_device_hex"] == "0x10"
+    assert source._attr_device_info["name"] == "TV"
     assert source._attr_unique_id == "uuid:123_active_source"
     assert source._attr_translation_key == "active_source"
     assert not hasattr(mod, "MetzVolumeSensor")
@@ -102,7 +103,8 @@ def test_active_source_readback_uses_coordinator_and_device_list():
 def test_unknown_active_device_and_standby_are_not_fake_sources():
     mod = _import_real_sensor_module()
     source = _make_entities(mod, source=255)
-    assert source.native_value == "Device 255"
+    assert source.native_value is None
+    assert source.extra_state_attributes["source"] is None
     assert source.extra_state_attributes["active_device_hex"] == "0xFF"
 
     for powered, success in ((1, True), (0, False)):
@@ -143,3 +145,12 @@ def test_volume_registry_entry_is_removed_on_upgrade():
     assert removed == ["sensor.metz_tv_volume"]
     assert len(entities) == 1
     assert isinstance(entities[0], mod.MetzSourceSensor)
+
+
+def test_sensor_preserves_tv_reported_custom_input_name():
+    mod = _import_real_sensor_module()
+    source = _make_entities(mod)
+    source.coordinator.data.source_name = "Blu-ray-Player"
+    assert source.native_value == "Blu-ray-Player"
+    assert source.extra_state_attributes["source"] == "Blu-ray-Player"
+    assert source.extra_state_attributes["active_device_id"] == 16

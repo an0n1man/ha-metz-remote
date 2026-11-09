@@ -1,4 +1,4 @@
-"""Async Metz Classic UPnP/SOAP protocol client.
+"""Async Metz Remote UPnP/SOAP protocol client.
 
 Only the device's advertised service and confirmed action names are used.
 This module intentionally has no dependency on Home Assistant, making it testable.
@@ -56,14 +56,26 @@ class MetzStatus:
     active_device: int
     devices: dict[int, str]
 
+    def get_device_name(self, device_id: int) -> str | None:
+        """Return a TV-supplied input name from the GetDeviceList response.
+
+        This deliberately does not synthesize names from fixed HDMI IDs.
+        The Android app's unrelated StringHelper.getDeviceName() returns
+        the PHONE model and must not be used for an active TV source.
+        """
+        value = self.devices.get(device_id)
+        if not isinstance(value, str):
+            return None
+        return value.strip() or None
+
     @property
     def source_name(self) -> str | None:
-        """Return the friendly name for the reported active device."""
-        return self.devices.get(self.active_device)
+        """Name of the active input, as provided by the television."""
+        return self.get_device_name(self.active_device)
 
 
 class MetzClient:
-    """Small non-blocking client for the Metz Classic remote protocol."""
+    """Small non-blocking client for the Metz Remote remote protocol."""
 
     def __init__(
         self,
@@ -105,7 +117,7 @@ class MetzClient:
         udn = device.findtext(f"{{{DEVICE_NS}}}UDN")
         if not udn:
             raise MetzError("UPnP description has no device identifier (UDN)")
-        name = device.findtext(f"{{{DEVICE_NS}}}friendlyName") or "Metz TV"
+        name = device.findtext(f"{{{DEVICE_NS}}}friendlyName")
         for service in device.findall(f".//{{{DEVICE_NS}}}service"):
             if service.findtext(f"{{{DEVICE_NS}}}serviceType") != SERVICE_TYPE:
                 continue
@@ -273,9 +285,14 @@ class MetzClient:
         device_names: dict[int, str] = {}
         for i in range(0, len(raw_list) - 1, 2):
             try:
-                device_names[int(raw_list[i], 0)] = raw_list[i + 1]
+                device_id = int(raw_list[i].strip(), 0)
             except ValueError:
                 continue
+            # Preserve the exact TV-provided input label (apart from padding).
+            # A missing name should remain unknown, never be guessed from IDs.
+            device_name = raw_list[i + 1].strip()
+            if device_name:
+                device_names[device_id] = device_name
         try:
             return MetzStatus(
                 operation_mode=int(mode["OperationMode"]),

@@ -60,8 +60,10 @@ def _clean_host(value: str) -> str:
 def _clean_f1_source_button_id(value: Any) -> int | None:
     """Validate optional raw Metz SOAP KeyCode for the F1 submenu shortcut.
 
-    The input is a SendKeyCode ID (1..10 for numeric buttons 0..9), not
-    the visible digit. Empty input disables source selection completely.
+    The user enters the visible digit (0..9), not the SOAP KeyCode.
+    Persist the corresponding SOAP ID (digit + 1) for compatibility with
+    existing config entries, which stored the raw KeyCode (1..10).
+    Empty input disables source selection completely.
     """
     if value is None or value == "":
         return None
@@ -71,9 +73,9 @@ def _clean_f1_source_button_id(value: Any) -> int | None:
         keycode = int(value)
     except (TypeError, ValueError) as err:
         raise ValueError("Invalid F1 button ID") from err
-    if str(value).strip() != str(keycode) or not 1 <= keycode <= 10:
-        raise ValueError("F1 button ID must be a numeric Metz KeyCode (1-10)")
-    return keycode
+    if str(value).strip() != str(keycode) or not 0 <= keycode <= 9:
+        raise ValueError("F1 button must be a digit (0-9)")
+    return keycode + 1
 
 
 class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -135,13 +137,13 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_BROADCAST: broadcast}
                     if f1_id is not None:
                         data[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = f1_id
-                    return self.async_create_entry(title=description.name, data=data)
+                    return self.async_create_entry(title="TV", data=data)
         schema_fields = {
             vol.Required(CONF_HOST, default=self._discovered_host or ""): str,
             vol.Optional(CONF_MAC, default=""): str,
             vol.Optional(CONF_BROADCAST, default=DEFAULT_BROADCAST): str,
             vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID): vol.All(
-                vol.Coerce(int), vol.Range(min=1, max=10)
+                vol.Coerce(int), vol.Range(min=0, max=9)
             ),
         }
         return self.async_show_form(
@@ -190,7 +192,7 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if f1_id is not None:
                     data[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = f1_id
                 return self.async_create_entry(
-                    title=self._discovered_description.name, data=data,
+                    title="TV", data=data,
                 )
         return self.async_show_form(
             step_id="confirm", errors=errors,
@@ -198,7 +200,7 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_MAC, default=""): str,
                 vol.Optional(CONF_BROADCAST, default=DEFAULT_BROADCAST): str,
                 vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=10)
+                    vol.Coerce(int), vol.Range(min=0, max=9)
                 ),
             }),
         )
@@ -242,9 +244,14 @@ class MetzRemoteOptionsFlow(config_entries.OptionsFlowWithReload):
         broadcast_default = entry.options.get(
             CONF_BROADCAST, entry.data.get(CONF_BROADCAST, DEFAULT_BROADCAST)
         )
-        f1_default = entry.options.get(
+        stored_f1_keycode = entry.options.get(
             CONF_F1_SOURCE_SELECTION_BUTTON_ID,
             entry.data.get(CONF_F1_SOURCE_SELECTION_BUTTON_ID),
+        )
+        # Existing entries store SOAP IDs 1..10; show visible digits 0..9.
+        f1_default = (
+            int(stored_f1_keycode) - 1
+            if stored_f1_keycode is not None else None
         )
         schema = {
             vol.Optional(CONF_MAC, default=mac_default): str,
@@ -252,12 +259,12 @@ class MetzRemoteOptionsFlow(config_entries.OptionsFlowWithReload):
         }
         if f1_default is None:
             schema[vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID)] = vol.All(
-                vol.Coerce(int), vol.Range(min=1, max=10)
+                vol.Coerce(int), vol.Range(min=0, max=9)
             )
         else:
             schema[vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID,
                                 default=f1_default)] = vol.All(
-                vol.Coerce(int), vol.Range(min=1, max=10)
+                vol.Coerce(int), vol.Range(min=0, max=9)
             )
         return self.async_show_form(
             step_id="init", data_schema=vol.Schema(schema), errors=errors,

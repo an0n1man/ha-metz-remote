@@ -41,7 +41,7 @@ class MetzRemoteEntity(CoordinatorEntity[MetzCoordinator], RemoteEntity):
             identifiers={(DOMAIN, runtime.description.udn)},
             manufacturer="Metz",
             model="Metz Remote",
-            name=runtime.description.name,
+            name="TV",
         )
 
     @property

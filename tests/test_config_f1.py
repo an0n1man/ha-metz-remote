@@ -61,7 +61,7 @@ def load_flow():
     @dataclass
     class MetzDescription:
         udn: str = "uuid:test"
-        name: str = "Metz TV"
+        name: str = "TV"
 
     root = stub("metz_flow_fixture")
     root.__path__ = [str(COMPONENT_DIR)]
@@ -89,8 +89,10 @@ def test_f1_config_validation():
     mod = load_flow()
     assert mod._clean_f1_source_button_id(None) is None
     assert mod._clean_f1_source_button_id("") is None
-    assert mod._clean_f1_source_button_id("5") == 5
-    for invalid in (0, 11, -1, True, "abc", "5.1"):
+    assert mod._clean_f1_source_button_id("0") == 1
+    assert mod._clean_f1_source_button_id("4") == 5
+    assert mod._clean_f1_source_button_id("9") == 10
+    for invalid in (10, 11, -1, True, "abc", "5.1"):
         with pytest.raises(ValueError):
             mod._clean_f1_source_button_id(invalid)
 
@@ -107,10 +109,11 @@ def test_new_setup_exposes_optional_f1_id_and_persists_valid_one():
     assert KEY in [k.key for k in initial_form["data_schema"]]
     created = asyncio.run(flow.async_step_user({
         "host": "192.168.1.131", "mac": "", "broadcast_address": "192.168.1.255",
-        KEY: 5,
+        KEY: 0,
     }))
-    assert created["data"][KEY] == 5
+    assert created["data"][KEY] == 1
     assert created["data"]["host"] == "192.168.1.131"
+    assert created["title"] == "TV"
     blank = asyncio.run(flow.async_step_user({
         "host": "192.168.1.131", "mac": "", "broadcast_address": "192.168.1.255",
     }))
@@ -125,14 +128,46 @@ def test_options_can_set_and_clear_f1_id_without_removing_existing_entry():
         options={},
     )
     form = asyncio.run(flow.async_step_init())
-    assert KEY in [k.key for k in form["data_schema"]]
+    f1_marker = next(k for k in form["data_schema"] if k.key == KEY)
+    # Previous v0.3.1 saved SOAP code 5 for physical digit 4.
+    assert f1_marker.default == 4
+    assert form["data_schema"][f1_marker][1] == {"min": 0, "max": 9}
     changed = asyncio.run(flow.async_step_init({
-        "mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255", KEY: 7,
+        "mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255", KEY: 9,
     }))
-    assert changed["data"][KEY] == 7
+    assert changed["data"][KEY] == 10
     cleared = asyncio.run(flow.async_step_init({
         "mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255",
     }))
     # Explicit None overrides old entry.data to disable SELECT_SOURCE.
     assert KEY in cleared["data"]
     assert cleared["data"][KEY] is None
+
+
+def test_all_f1_forms_offer_digits_zero_through_nine():
+    mod = load_flow()
+    initial = mod.MetzRemoteConfigFlow()
+    user_form = asyncio.run(initial.async_step_user())
+    confirm_form = asyncio.run(initial.async_step_confirm())
+    options = mod.MetzRemoteOptionsFlow()
+    options.config_entry = types.SimpleNamespace(data={}, options={})
+    options_form = asyncio.run(options.async_step_init())
+    for form in (user_form, confirm_form, options_form):
+        marker = next(k for k in form["data_schema"] if k.key == KEY)
+        assert form["data_schema"][marker][1] == {"min": 0, "max": 9}
+
+
+def test_existing_f1_config_remains_compatible_on_options_save():
+    mod = load_flow()
+    flow = mod.MetzRemoteOptionsFlow()
+    flow.config_entry = types.SimpleNamespace(
+        data={KEY: 10, "mac": "", "broadcast_address": "255.255.255.255"},
+        options={},
+    )
+    form = asyncio.run(flow.async_step_init())
+    field = next(k for k in form["data_schema"] if k.key == KEY)
+    assert field.default == 9  # Existing SOAP KeyCode 10 => physical 9
+    saved = asyncio.run(flow.async_step_init({
+        KEY: 9, "mac": "", "broadcast_address": "255.255.255.255",
+    }))
+    assert saved["data"][KEY] == 10
