@@ -136,7 +136,10 @@ def test_f1_source_macro_all_seven_inputs() -> None:
                 elif action == "GetActiveDevice":
                     values = {"ActiveDevice": str(active)}
                 elif action == "GetDeviceList":
-                    values = {"DeviceList": f"0x{target:02X};{source};"}
+                    values = {
+                        "ActiveDevice": str(target),
+                        "DeviceList": f"0x{target:02X};{source};",
+                    }
                 else:
                     return web.Response(status=500)
                 return web.Response(text=xml_response(action, values), content_type="text/xml")
@@ -187,7 +190,10 @@ def test_f1_source_macro_rejects_unknown_and_mismatching_readback() -> None:
                 active_device_reads += 1
                 values = {"ActiveDevice": "17" if active_device_reads == 1 else "16"}
             elif action == "GetDeviceList":
-                values = {"DeviceList": "0x10;Wrong input name;"}
+                values = {
+                    "ActiveDevice": "16",
+                    "DeviceList": "0x10;Wrong input name;",
+                }
             else:
                 values = {}
             return web.Response(text=xml_response(action, values), content_type="text/xml")
@@ -229,7 +235,7 @@ def test_f1_source_macro_waits_three_seconds_before_name_verification() -> None:
             if name == "GetActiveDevice":
                 return {"ActiveDevice": "16" if len(sent) == 3 else "17"}
             if name == "GetDeviceList":
-                return {"DeviceList": "0x10;HDMI 1;"}
+                return {"ActiveDevice": "16", "DeviceList": "0x10;HDMI 1;"}
             raise AssertionError(f"Unexpected action: {name}")
 
         async def send_key(code):
@@ -246,6 +252,38 @@ def test_f1_source_macro_waits_three_seconds_before_name_verification() -> None:
         assert sent == [12, 5, 2]
         assert delays == [0.85, 0.65, 3.0]
         assert actions == ["GetActiveDevice", "GetActiveDevice", "GetDeviceList"]
+
+    asyncio.run(check())
+
+
+def test_f1_source_macro_uses_device_list_active_name_for_verification() -> None:
+    async def check():
+        api = MetzClient(object(), "127.0.0.1")
+        sent = []
+
+        async def action(name, arguments=None):
+            if name == "GetActiveDevice":
+                # The direct action reports a different analogue-input ID.
+                return {"ActiveDevice": "17" if not sent else "22"}
+            if name == "GetDeviceList":
+                return {
+                    "ActiveDevice": "20",
+                    "DeviceList": "0x14;EURO;0x16;Cinch Audio;",
+                }
+            raise AssertionError(f"Unexpected action: {name}")
+
+        async def send_key(code):
+            sent.append(code)
+
+        async def sleep(_delay):
+            pass
+
+        api.async_action = action
+        api._async_send_key_unlocked = send_key
+        with patch("metz_remote.api.asyncio.sleep", new=sleep):
+            assert await api.async_select_f1_source("EURO", 5) is True
+
+        assert sent == [12, 5, 6]
 
     asyncio.run(check())
 

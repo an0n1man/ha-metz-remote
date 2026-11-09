@@ -331,9 +331,10 @@ class MetzClient:
     ) -> bool:
         """Select via F1 -> configured SOAP KeyCode -> numeric source key.
 
-        After a three-second settle period, the TV's active device ID and
-        name are read with GetActiveDevice and GetDeviceList. A partially
-        delivered command is never retried automatically.
+        After a three-second settle period, GetActiveDevice and GetDeviceList
+        are read. GetDeviceList supplies the authoritative active-device ID
+        and name for comparison. A partially delivered command is never
+        retried automatically.
         """
         if source not in SOURCE_BUTTONS:
             raise MetzError(f"Unsupported source: {source!r}")
@@ -357,16 +358,21 @@ class MetzClient:
             await asyncio.sleep(settle_delay)
             after = await self.async_action("GetActiveDevice")
             try:
-                selected = int(after["ActiveDevice"])
+                reported_active_device = int(after["ActiveDevice"])
             except (KeyError, ValueError) as err:
                 raise MetzError("Cannot verify TV source after switching") from err
             devices = await self.async_action("GetDeviceList")
-            selected_name = _parse_device_list(
-                devices.get("DeviceList", "")
-            ).get(selected)
-            if selected != expected_device or selected_name != source:
+            try:
+                listed_active_device = int(devices["ActiveDevice"])
+            except (KeyError, ValueError) as err:
+                raise MetzError("Cannot verify TV source after switching") from err
+            selected_name = _parse_device_list(devices.get("DeviceList", "")).get(
+                listed_active_device
+            )
+            if selected_name != source:
                 raise MetzError(
-                    f"{source} not confirmed: TV reports ActiveDevice={selected}, "
-                    f"name={selected_name!r}"
+                    f"{source} not confirmed: GetActiveDevice="
+                    f"{reported_active_device}, GetDeviceList ActiveDevice="
+                    f"{listed_active_device}, name={selected_name!r}"
                 )
             return True

@@ -1,15 +1,15 @@
 # Metz Remote — Home Assistant custom integration
 
-Version **0.3.5**: F1 source selection uses the fixed Metz source-button mapping. No per-source configuration is required.
+Version **0.3.6**: F1 source selection uses the fixed Metz source-button mapping. No per-source configuration is required.
 
 Experimental Home Assistant custom integration for **Metz Remote**, package
-version **0.3.5**, domain `metz_remote`.
+version **0.3.6**, domain `metz_remote`.
 
 The communication is local: the TV advertises `RCRService:1` SOAP on TCP 49200.
 It was discovered and the basics were tested with an actual Metz TV; this
 version's F1 source-button mapping has been confirmed by the user.
 
-## v0.3.5 - Fixed F1 source-button mapping
+## v0.3.6 - Fixed F1 source-button mapping
 
 The F1 source list uses these fixed visible button IDs:
 
@@ -24,8 +24,8 @@ The F1 source list uses these fixed visible button IDs:
 |      7 | Cinch Audio |           `0x16` (22) |
 
 The integration sends the matching button for every source, waits three
-seconds, then reads `GetActiveDevice` and `GetDeviceList`. The TV-reported
-active device name must match the selected source.
+seconds, then reads `GetActiveDevice` and `GetDeviceList`. The name for
+`GetDeviceList`'s own `ActiveDevice` must match the selected source.
 
 
 ## v0.3.4 — Active source uses the TV-reported name
