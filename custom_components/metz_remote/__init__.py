@@ -17,6 +17,7 @@ from .api import (
     MetzClient, MetzConnectionError, MetzDescription, MetzError, MetzStatus,
 )
 from .const import (
+    ANALOGUE_F1_SOURCE_ACTIVE_DEVICE_IDS,
     CONF_MAC, CONF_BROADCAST, CONF_F1_SOURCE_SELECTION_BUTTON_ID,
     DEFAULT_BROADCAST, DEFAULT_SCAN_INTERVAL, DOMAIN,
 )
@@ -48,6 +49,30 @@ class MetzCoordinator(DataUpdateCoordinator[MetzStatus]):
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
         self.api = api
+        self._source_override: tuple[str, int] | None = None
+
+    @property
+    def source_name(self) -> str | None:
+        """Return the reported source or a valid analogue-command override."""
+        status = getattr(self, "data", None)
+        if status is None:
+            return None
+        if (
+            self._source_override is not None
+            and status.active_device == self._source_override[1]
+        ):
+            return self._source_override[0]
+        return status.source_name
+
+    def set_source_override(self, source: str | None) -> None:
+        """Remember a successful analogue selection while its anomaly persists."""
+        if source is None:
+            self._source_override = None
+            return
+        active_device = ANALOGUE_F1_SOURCE_ACTIVE_DEVICE_IDS.get(source)
+        self._source_override = (
+            (source, active_device) if active_device is not None else None
+        )
 
     async def _async_update_data(self) -> MetzStatus:
         try:

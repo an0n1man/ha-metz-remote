@@ -17,7 +17,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import MetzCoordinator
 from .api import MetzError
-from .const import DOMAIN, KEY_CODES, SOURCE_BUTTONS
+from .const import (
+    ANALOGUE_F1_SOURCE_ACTIVE_DEVICE_IDS,
+    DOMAIN,
+    KEY_CODES,
+    SOURCE_BUTTONS,
+)
 from .wol import async_send_magic_packet
 
 
@@ -77,7 +82,7 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
     def source(self) -> str | None:
         if not self.coordinator.last_update_success:
             return None
-        return self.coordinator.data.source_name
+        return self.coordinator.source_name
 
     @property
     def source_list(self) -> list[str] | None:
@@ -115,6 +120,9 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             raise HomeAssistantError(f"Unsupported Metz source: {source!r}")
         try:
             await self.runtime.api.async_select_f1_source(source, f1_id)
+            self.coordinator.set_source_override(
+                source if source in ANALOGUE_F1_SOURCE_ACTIVE_DEVICE_IDS else None
+            )
         except MetzError as err:
             raise HomeAssistantError(f"Metz source selection failed: {err}") from err
         finally:

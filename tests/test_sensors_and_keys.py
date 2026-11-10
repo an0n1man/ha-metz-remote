@@ -79,7 +79,11 @@ def _make_entities(mod, *, powered=0, success=True, source=16):
         devices={0: "Metz-TV", 16: "HDMI 1", 17: "HDMI 2"},
         source_name={0: "Metz-TV", 16: "HDMI 1", 17: "HDMI 2"}.get(source),
     )
-    coord = types.SimpleNamespace(last_update_success=success, data=status)
+    coord = types.SimpleNamespace(
+        last_update_success=success,
+        data=status,
+        source_name=status.source_name,
+    )
     runtime = types.SimpleNamespace(
         coordinator=coord,
         description=types.SimpleNamespace(udn="uuid:123", name="My Metz"),
@@ -110,6 +114,18 @@ def test_unknown_active_device_and_standby_are_not_fake_sources():
     for powered, success in ((1, True), (0, False)):
         source = _make_entities(mod, powered=powered, success=success)
         assert source.native_value is None
+
+
+def test_active_source_uses_analogue_command_override():
+    mod = _import_real_sensor_module()
+    source = _make_entities(mod, source=22)
+    source.coordinator.source_name = "EURO"
+    assert source.native_value == "EURO"
+    assert source.extra_state_attributes == {
+        "active_device_id": 22,
+        "active_device_hex": "0x16",
+        "source": "EURO",
+    }
 
 
 
@@ -151,6 +167,7 @@ def test_sensor_preserves_tv_reported_custom_input_name():
     mod = _import_real_sensor_module()
     source = _make_entities(mod)
     source.coordinator.data.source_name = "Blu-ray-Player"
+    source.coordinator.source_name = "Blu-ray-Player"
     assert source.native_value == "Blu-ray-Player"
     assert source.extra_state_attributes["source"] == "Blu-ray-Player"
     assert source.extra_state_attributes["active_device_id"] == 16

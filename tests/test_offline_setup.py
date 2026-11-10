@@ -180,3 +180,25 @@ def test_options_override_initial_wol_configuration():
     assert asyncio.run(setup.async_setup_entry(Hass(), entry))
     assert entry.runtime_data.mac == "AABBCCDDEEFF"
     assert entry.runtime_data.broadcast_address == "192.168.1.255"
+
+
+def test_analogue_source_override_requires_its_known_raw_id():
+    setup, _ = setup_module_with_fake_ha()
+    coordinator = setup.MetzCoordinator(object(), object())
+    coordinator.data = setup.MetzStatus(
+        operation_mode=1,
+        power_state=0,
+        active_device=22,
+        devices={16: "HDMI 1", 22: "Cinch Audio"},
+    )
+
+    coordinator.set_source_override("EURO")
+    assert coordinator.source_name == "EURO"
+
+    coordinator.data = setup.MetzStatus(
+        operation_mode=1,
+        power_state=0,
+        active_device=16,
+        devices={16: "HDMI 1", 22: "Cinch Audio"},
+    )
+    assert coordinator.source_name == "HDMI 1"

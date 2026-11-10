@@ -46,7 +46,7 @@ class MetzBaseSensor(CoordinatorEntity[MetzCoordinator], SensorEntity):
 
 
 class MetzSourceSensor(MetzBaseSensor):
-    """Actual input reported by GetDeviceList, not a guessed input."""
+    """Reported input, with a valid analogue-command override when needed."""
 
     _attr_translation_key = "active_source"
     _attr_icon = "mdi:video-input-hdmi"
@@ -63,7 +63,7 @@ class MetzSourceSensor(MetzBaseSensor):
         status = self.coordinator.data
         if status.power_state != 0:
             return None
-        return status.source_name
+        return self.coordinator.source_name
 
     @property
     def extra_state_attributes(self) -> dict[str, int | str | None] | None:
@@ -74,6 +74,6 @@ class MetzSourceSensor(MetzBaseSensor):
         return {
             "active_device_id": status.active_device,
             "active_device_hex": f"0x{status.active_device:02X}",
-            "source": status.source_name,
+            "source": self.coordinator.source_name,
         }
 
