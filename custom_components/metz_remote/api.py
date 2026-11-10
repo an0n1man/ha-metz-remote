@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import suppress
 from dataclasses import dataclass
+import logging
 from urllib.parse import urljoin, urlsplit
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
@@ -17,6 +18,7 @@ import aiohttp
 
 from .const import (
     DEFAULT_PORT, DEVICE_TYPE, SERVICE_TYPE, KEY_CODES, SOURCE_BUTTONS,
+    UNVERIFIABLE_F1_SOURCES,
 )
 
 SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -28,6 +30,7 @@ NO_KEEPALIVE_HEADERS = {"Connection": "close"}
 READ_ONLY_ACTIONS = frozenset({
     "GetOperationMode", "GetDeviceList", "GetPowerState", "GetActiveDevice",
 })
+_LOGGER = logging.getLogger(__name__)
 
 
 def _parse_device_list(value: str) -> dict[int, str]:
@@ -370,6 +373,17 @@ class MetzClient:
                 listed_active_device
             )
             if selected_name != source:
+                if source in UNVERIFIABLE_F1_SOURCES:
+                    _LOGGER.warning(
+                        "Metz selected %s but RCRService reports "
+                        "GetActiveDevice=%s, GetDeviceList ActiveDevice=%s, "
+                        "name=%r; accepting known analogue-source status mismatch",
+                        source,
+                        reported_active_device,
+                        listed_active_device,
+                        selected_name,
+                    )
+                    return True
                 raise MetzError(
                     f"{source} not confirmed: GetActiveDevice="
                     f"{reported_active_device}, GetDeviceList ActiveDevice="

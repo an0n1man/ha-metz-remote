@@ -288,6 +288,42 @@ def test_f1_source_macro_uses_device_list_active_name_for_verification() -> None
     asyncio.run(check())
 
 
+def test_f1_source_macro_accepts_known_analogue_status_mismatches() -> None:
+    async def check():
+        for source, reported_id in {
+            "EURO": 22,
+            "Cinch AV": 23,
+            "Cinch Audio": 54,
+        }.items():
+            api = MetzClient(object(), "127.0.0.1")
+            sent = []
+
+            async def action(name, arguments=None):
+                if name == "GetActiveDevice":
+                    return {"ActiveDevice": str(reported_id if sent else 0)}
+                if name == "GetDeviceList":
+                    return {
+                        "ActiveDevice": str(reported_id),
+                        "DeviceList": "0x14;EURO;0x15;Cinch AV;0x16;Cinch Audio;",
+                    }
+                raise AssertionError(f"Unexpected action: {name}")
+
+            async def send_key(code):
+                sent.append(code)
+
+            async def sleep(_delay):
+                pass
+
+            api.async_action = action
+            api._async_send_key_unlocked = send_key
+            with patch("metz_remote.api.asyncio.sleep", new=sleep):
+                assert await api.async_select_f1_source(source, 5) is True
+
+            assert len(sent) == 3
+
+    asyncio.run(check())
+
+
 def test_verified_direction_and_source_codes() -> None:
     from metz_remote.const import KEY_CODES, SOURCE_BUTTONS
     assert [KEY_CODES[k] for k in ("up", "left", "right", "down")] == [23, 25, 26, 24]

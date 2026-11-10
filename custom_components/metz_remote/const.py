@@ -26,6 +26,11 @@ SOURCE_BUTTONS: dict[str, tuple[int, int]] = {
     "Cinch Audio": (0x16, 7),
 }
 
+# This TV's F1 sequence selects these analogue sources correctly, but its
+# RCRService reports unrelated ActiveDevice values afterward. They cannot be
+# verified from SOAP state without rejecting successful selections.
+UNVERIFIABLE_F1_SOURCES = frozenset({"EURO", "Cinch AV", "Cinch Audio"})
+
 # From Metz Remote APK de.metz.android.mecaremote: the Android
 # ButtonLayout.rcViewMap and legacy RcView class. Unknown swipe codes 70/71
 # are deliberately NOT assigned a function; they can still be sent as raw IDs.
