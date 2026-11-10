@@ -1,6 +1,6 @@
 # Metz Remote — Home Assistant custom integration
 
-Version **0.3.11**: adds optional Watt-based power detection and ping-backed toggle fallback.
+Version **0.3.11**: adds optional Watt-based power detection and SOAP power-state toggle fallback.
 
 Experimental Home Assistant custom integration for **Metz Remote**, package
 version **0.3.11**, domain `metz_remote`.
@@ -17,9 +17,10 @@ reports **on** above 70 W, **idle** from more than 10 W through 70 W, and
 all other measured states it exposes **Turn on**. The current reading and
 classification are available as `power_watts` and `power_mode` attributes.
 
-Without a configured power sensor, the integration pings the TV host each poll
-to report **on** or **off**. In this fallback mode either power action sends
-Metz key `11` as a toggle rather than relying on separate on/off behavior.
+Without a configured power sensor, the integration uses the TV's SOAP
+`PowerState` to report **on** or **off**. In this fallback mode either power
+action sends Metz key `11` as a toggle rather than relying on separate on/off
+behavior.
 
 ## v0.3.10 - TV source selection
 
@@ -134,8 +135,8 @@ remove that integration separately, and configure `metz_remote` as a new one.
 
 - With a configured power sensor: turn on uses Wake-on-LAN, turn off sends
   Metz power toggle (`11`) only from the high-power **on** state.
-- Without a power sensor: ICMP ping determines the reported on/off state and
-  either power action sends Metz power toggle (`11`).
+- Without a power sensor: SOAP `PowerState` determines the reported on/off
+  state and either power action sends Metz power toggle (`11`).
 - Remote: `remote.send_command` exposes the APK-mapped keys (`f1`, `menu`,
   `epg`, `digit_0` ... `digit_9`, arrows, playback, etc.), including raw decimal
   key IDs. Each request uses a fresh TCP connection modeled on `metzctl`.

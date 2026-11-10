@@ -14,7 +14,7 @@
         },
         "data_description": {
           "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden.",
-          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um ICMP-Ping und einen Power-Toggle zu verwenden."
+          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um den SOAP-PowerState und einen Power-Toggle zu verwenden."
         }
       },
       "confirm": {
@@ -26,7 +26,7 @@
         },
         "data_description": {
           "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden.",
-          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um ICMP-Ping und einen Power-Toggle zu verwenden."
+          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um den SOAP-PowerState und einen Power-Toggle zu verwenden."
         }
       }
     },
@@ -56,7 +56,7 @@
         },
         "data_description": {
           "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden.",
-          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um ICMP-Ping und einen Power-Toggle zu verwenden."
+          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um den SOAP-PowerState und einen Power-Toggle zu verwenden."
         }
       }
     },

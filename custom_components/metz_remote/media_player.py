@@ -93,7 +93,7 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
         return watts if math.isfinite(watts) else None
 
     def _power_mode(self) -> str | None:
-        """Classify power-sensor readings or use ping when no sensor exists."""
+        """Classify power-sensor readings or fall back to SOAP PowerState."""
         if self.runtime.power_sensor_entity_id:
             watts = self._power_watts()
             if watts is None:
@@ -103,7 +103,13 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             if watts > POWER_OFF_WATTS:
                 return "active"
             return "off"
-        return "on" if self.coordinator.last_ping_success else "off"
+        if not self.coordinator.last_update_success:
+            return "off" if self.runtime.mac else None
+        if self.coordinator.data.power_state == 0:
+            return "on"
+        if self.coordinator.data.power_state == 1:
+            return "off"
+        return None
 
     @property
     def supported_features(self):
@@ -118,14 +124,13 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
         """Allow Wake-on-LAN even when the SOAP service is asleep."""
         return (
             self.coordinator.last_update_success
-            or self.coordinator.last_ping_success is not None
             or bool(self.runtime.mac)
             or bool(self.runtime.power_sensor_entity_id)
         )
 
     @property
     def state(self) -> MediaPlayerState | None:
-        """Report power-sensor state, or reachability when no sensor is set."""
+        """Report power-sensor state, or SOAP power state when no sensor is set."""
         power_mode = self._power_mode()
         if power_mode == "on":
             return MediaPlayerState.ON

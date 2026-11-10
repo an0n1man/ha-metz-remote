@@ -105,9 +105,8 @@ def _load_player():
 
 
 class FakeCoordinator:
-    def __init__(self, *, power=0, success=True, ping=True):
+    def __init__(self, *, power=0, success=True):
         self.last_update_success = success
-        self.last_ping_success = ping
         self.data = types.SimpleNamespace(
             power_state=power,
             operation_mode=1,
@@ -135,11 +134,10 @@ def _make_player(
     broadcast="192.168.1.255",
     power=0,
     success=True,
-    ping=True,
     power_sensor=None,
     power_watts=None,
 ):
-    coordinator = FakeCoordinator(power=power, success=success, ping=ping)
+    coordinator = FakeCoordinator(power=power, success=success)
     api = FakeAPI()
     runtime = types.SimpleNamespace(
         coordinator=coordinator, api=api,
@@ -242,15 +240,15 @@ def test_power_sensor_classifies_state_and_available_power_action():
         }[watts]
 
 
-def test_ping_fallback_sets_state_and_toggles_power():
+def test_soap_power_state_fallback_sets_state_and_toggles_power():
     mod, State, _ = _load_player()
-    player, _, api = _make_player(mod, ping=True)
+    player, _, api = _make_player(mod, power=0)
     assert player.state == State.ON
     assert player.supported_features & 1  # TURN_OFF
     asyncio.run(player.async_turn_off())
     assert api.sent == [11]
 
-    player, _, api = _make_player(mod, ping=False)
+    player, _, api = _make_player(mod, power=1)
     assert player.state == State.OFF
     assert player.supported_features & 2  # TURN_ON
     asyncio.run(player.async_turn_on())

@@ -14,7 +14,7 @@
         },
         "data_description": {
           "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection.",
-          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use ICMP ping and toggle power."
+          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use the TV SOAP power state and toggle power."
         }
       },
       "confirm": {
@@ -26,7 +26,7 @@
         },
         "data_description": {
           "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection.",
-          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use ICMP ping and toggle power."
+          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use the TV SOAP power state and toggle power."
         }
       }
     },
@@ -56,7 +56,7 @@
         },
         "data_description": {
           "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection.",
-          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use ICMP ping and toggle power."
+          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use the TV SOAP power state and toggle power."
         }
       }
     },
