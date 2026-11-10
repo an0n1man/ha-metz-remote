@@ -62,6 +62,7 @@ def _load_player():
                 "EURO": (22, 5), "Cinch AV": (23, 6),
                 "Cinch Audio": (54, 7),
             },
+            TV_SOURCE="TV",
             KEY_CODES={"power": 11},
         ),
         pkgname + ".wol": _stub(pkgname + ".wol", async_send_magic_packet=None),
@@ -219,16 +220,29 @@ def test_wol_packet_format_and_broadcast_target():
     assert target == ("192.168.1.255", 9)
 
 
-def test_source_selection_is_hidden_unless_f1_id_is_configured():
+def test_source_selection_exposes_tv_without_f1_configuration():
     mod, _, HomeAssistantError = _load_player()
-    player, coord, _ = _make_player(mod)
+    player, coord, api = _make_player(mod)
     coord.data.source_name = "HDMI 2"
-    # Even without a configurable F1 key, SOAP source status remains readable.
     assert player.source == "HDMI 2"
-    assert player.source_list is None
-    assert not player._attr_supported_features & 32  # SELECT_SOURCE
+    assert player.source_list == ["TV"]
+    assert player._attr_supported_features & 32  # SELECT_SOURCE
     with pytest.raises(HomeAssistantError, match="Configure an F1"):
         asyncio.run(player.async_select_source("HDMI 1"))
+    coord.refreshes = []
+
+    async def refresh():
+        coord.refreshes.append(True)
+
+    async def select_tv():
+        api.sent.append("TV")
+
+    coord.async_request_refresh = refresh
+    api.async_select_tv_source = select_tv
+    asyncio.run(player.async_select_source("TV"))
+    assert api.sent == ["TV"]
+    assert coord.refreshes == [True]
+
     player.runtime.f1_source_selection_button_id = 5
     # Entity attributes are set when the config-entry is loaded, so recreate.
     fresh, _, _ = _make_player(mod)
@@ -236,7 +250,7 @@ def test_source_selection_is_hidden_unless_f1_id_is_configured():
     fresh2 = mod.MetzMediaPlayer(types.SimpleNamespace(runtime_data=fresh.runtime))
     assert fresh2._attr_supported_features & 32
     assert fresh2.source_list == [
-        "HDMI 1", "HDMI 2", "HDMI 3", "HDMI 4",
+        "TV", "HDMI 1", "HDMI 2", "HDMI 3", "HDMI 4",
         "EURO", "Cinch AV", "Cinch Audio",
     ]
 

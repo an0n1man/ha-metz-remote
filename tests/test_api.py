@@ -177,6 +177,39 @@ def test_f1_source_macro_all_seven_inputs() -> None:
     asyncio.run(check())
 
 
+def test_tv_source_macro_sends_source_then_ok_and_verifies_zero() -> None:
+    async def check():
+        api = MetzClient(object(), "127.0.0.1")
+        actions = []
+        sent = []
+        delays = []
+
+        async def action(name, arguments=None):
+            actions.append(name)
+            if name == "GetActiveDevice":
+                return {"ActiveDevice": "0" if len(sent) == 2 else "16"}
+            if name == "GetDeviceList":
+                return {"ActiveDevice": "0", "DeviceList": "0x00;Metz-TV;"}
+            raise AssertionError(f"Unexpected action: {name}")
+
+        async def send_key(code):
+            sent.append(code)
+
+        async def sleep(delay):
+            delays.append(delay)
+
+        api.async_action = action
+        api._async_send_key_unlocked = send_key
+        with patch("metz_remote.api.asyncio.sleep", new=sleep):
+            assert await api.async_select_tv_source() is True
+
+        assert sent == [49, 39]
+        assert delays == [1.0, 3.0]
+        assert actions == ["GetActiveDevice", "GetActiveDevice", "GetDeviceList"]
+
+    asyncio.run(check())
+
+
 def test_f1_source_macro_rejects_unknown_and_mismatching_readback() -> None:
     async def check():
         sent = []
@@ -289,7 +322,7 @@ def test_f1_source_macro_uses_canonical_active_id_not_device_list_name() -> None
 
 
 def test_verified_direction_and_source_codes() -> None:
-    from metz_remote.const import ACTIVE_SOURCE_IDS, KEY_CODES, SOURCE_BUTTONS
+    from metz_remote.const import ACTIVE_SOURCE_IDS, KEY_CODES, SOURCE_BUTTONS, TV_SOURCE
     assert [KEY_CODES[k] for k in ("up", "left", "right", "down")] == [23, 25, 26, 24]
     assert KEY_CODES["source"] == 49
     assert SOURCE_BUTTONS == {
@@ -301,6 +334,8 @@ def test_verified_direction_and_source_codes() -> None:
         "Cinch AV": (23, 6),
         "Cinch Audio": (54, 7),
     }
+    assert TV_SOURCE == "TV"
+    assert ACTIVE_SOURCE_IDS["Metz-TV"] == 0
     assert ACTIVE_SOURCE_IDS["EURO"] == 22
 
 

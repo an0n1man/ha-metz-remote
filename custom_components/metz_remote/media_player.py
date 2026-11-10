@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import MetzCoordinator
 from .api import MetzError
-from .const import DOMAIN, KEY_CODES, SOURCE_BUTTONS
+from .const import DOMAIN, KEY_CODES, SOURCE_BUTTONS, TV_SOURCE
 from .wol import async_send_magic_packet
 
 
@@ -51,9 +51,8 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             | MediaPlayerEntityFeature.VOLUME_STEP
             | MediaPlayerEntityFeature.NEXT_TRACK
             | MediaPlayerEntityFeature.PREVIOUS_TRACK
+            | MediaPlayerEntityFeature.SELECT_SOURCE
         )
-        if runtime.f1_source_selection_button_id is not None:
-            self._attr_supported_features |= MediaPlayerEntityFeature.SELECT_SOURCE
         if runtime.mac:
             self._attr_supported_features |= MediaPlayerEntityFeature.TURN_ON
 
@@ -83,8 +82,8 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
     def source_list(self) -> list[str] | None:
         # Keep current source reporting independent of whether selecting is set up.
         if self.runtime.f1_source_selection_button_id is None:
-            return None
-        return list(SOURCE_BUTTONS)
+            return [TV_SOURCE]
+        return [TV_SOURCE, *SOURCE_BUTTONS]
 
     @property
     def extra_state_attributes(self) -> dict[str, int | list[str]] | None:
@@ -105,16 +104,22 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             raise HomeAssistantError(f"Metz command failed: {err}") from err
 
     async def async_select_source(self, source: str) -> None:
-        """F1 → configured source-list key → numeric source shortcut."""
-        f1_id = self.runtime.f1_source_selection_button_id
-        if f1_id is None:
-            raise HomeAssistantError(
-                "Configure an F1 source-selection button ID in integration options"
-            )
-        if source not in SOURCE_BUTTONS:
-            raise HomeAssistantError(f"Unsupported Metz source: {source!r}")
+        """Select TV directly or an F1-menu source through its numeric key."""
+        f1_id: int | None = None
+        if source != TV_SOURCE:
+            f1_id = self.runtime.f1_source_selection_button_id
+            if f1_id is None:
+                raise HomeAssistantError(
+                    "Configure an F1 source-selection button ID in integration options"
+                )
+            if source not in SOURCE_BUTTONS:
+                raise HomeAssistantError(f"Unsupported Metz source: {source!r}")
         try:
-            await self.runtime.api.async_select_f1_source(source, f1_id)
+            if source == TV_SOURCE:
+                await self.runtime.api.async_select_tv_source()
+            else:
+                assert f1_id is not None
+                await self.runtime.api.async_select_f1_source(source, f1_id)
         except MetzError as err:
             raise HomeAssistantError(f"Metz source selection failed: {err}") from err
         finally:

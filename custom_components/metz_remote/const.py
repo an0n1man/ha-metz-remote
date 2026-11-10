@@ -29,6 +29,7 @@ ACTIVE_SOURCE_IDS: dict[str, int] = {
 ACTIVE_SOURCE_NAMES = {
     active_device: source for source, active_device in ACTIVE_SOURCE_IDS.items()
 }
+TV_SOURCE = "TV"
 
 # Fixed numbered buttons in the F1 source list. The internal tuner is not
 # selectable through this macro.

@@ -1,20 +1,21 @@
 # Metz Remote — Home Assistant custom integration
 
-Version **0.3.9**: active-source identity uses fixed RCRService ActiveDevice IDs rather than DeviceList labels.
+Version **0.3.10**: adds direct TV source selection with `Source -> OK` and ActiveDevice `0` verification.
 
 Experimental Home Assistant custom integration for **Metz Remote**, package
-version **0.3.9**, domain `metz_remote`.
+version **0.3.10**, domain `metz_remote`.
 
 The communication is local: the TV advertises `RCRService:1` SOAP on TCP 49200.
 It was discovered and the basics were tested with an actual Metz TV; this
 version's F1 source-button and active-device mappings have been confirmed by the user.
 
-## v0.3.9 - Canonical active-source IDs
+## v0.3.10 - TV source selection
 
 The F1 source list uses these fixed visible button IDs:
 
 | Button | Source      | Expected ActiveDevice |
 | -----: | ----------- | --------------------: |
+| Source -> OK | TV | `0x00` (0) |
 |      1 | HDMI 1      |           `0x10` (16) |
 |      2 | HDMI 2      |           `0x11` (17) |
 |      3 | HDMI 3      |           `0x12` (18) |
@@ -23,11 +24,13 @@ The F1 source list uses these fixed visible button IDs:
 |      6 | Cinch AV    |                    23 |
 |      7 | Cinch Audio |                    54 |
 
-The integration sends the matching button for every source, waits three
-seconds, then reads `GetActiveDevice` and `GetDeviceList`. It compares the
-reported active ID to the fixed table above; `DeviceList` labels are not used
-for source comparison or active-source reporting. On a mismatch, the
-integration sends **Exit** to leave the source menu and reports the failure.
+`TV` is always available for source selection and uses `Source (49) -> OK
+(39)`. The other seven sources require the configured F1 shortcut and use the
+matching numeric button. Every macro waits three seconds, then reads
+`GetActiveDevice` and `GetDeviceList`. It compares the reported active ID to
+the fixed table above; `DeviceList` labels are not used for source comparison
+or active-source reporting. On a mismatch, the integration sends **Exit** to
+leave the source menu and reports the failure.
 
 
 ## v0.3.4 — Active source status
@@ -73,12 +76,17 @@ are unchanged.
   confirmation and the integration's **Configure** (options) screen, alongside
   MAC address and Wake-on-LAN broadcast address. Options updates reload the
   integration automatically.
-- **Only when configured:** the player exposes `SELECT_SOURCE` with all seven
-  fixed targets: HDMI 1 through Cinch Audio (`0x10` through `0x16`).
+- The player always exposes `SELECT_SOURCE` for **TV**. When the F1 shortcut
+  is configured, it additionally offers HDMI 1 through Cinch Audio.
 
 ### F1 source-selection sequence
 
-The integration transmits exactly three button commands:
+TV transmits exactly two button commands:
+
+1. `Source` — SOAP `SendKeyCode(49)`
+2. `OK` — SOAP `SendKeyCode(39)`
+
+The remaining sources transmit exactly three button commands:
 
 1. `F1` — SOAP `SendKeyCode(12)`
 2. **Configured F1 source-selection digit (0–9)** — the integration sends the

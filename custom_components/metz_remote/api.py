@@ -317,6 +317,51 @@ class MetzClient:
         async with self._command_lock:
             await self._async_send_key_unlocked(code)
 
+    async def _async_confirm_source_unlocked(
+        self, source: str, expected_device: int
+    ) -> None:
+        """Confirm an active source after the caller's key sequence."""
+        after = await self.async_action("GetActiveDevice")
+        try:
+            reported_active_device = int(after["ActiveDevice"])
+        except (KeyError, ValueError) as err:
+            raise MetzError("Cannot verify TV source after switching") from err
+        devices = await self.async_action("GetDeviceList")
+        try:
+            listed_active_device = int(devices["ActiveDevice"])
+        except (KeyError, ValueError) as err:
+            raise MetzError("Cannot verify TV source after switching") from err
+        if reported_active_device != expected_device:
+            await self._async_send_key_unlocked(KEY_CODES["exit"])
+            raise MetzError(
+                f"{source} not confirmed: expected ActiveDevice="
+                f"{expected_device}, GetActiveDevice={reported_active_device}, "
+                f"GetDeviceList ActiveDevice={listed_active_device}"
+            )
+
+    async def async_select_tv_source(
+        self,
+        *,
+        source_key_delay: float = 1.0,
+        settle_delay: float = 3.0,
+    ) -> bool:
+        """Select TV with Source -> OK and verify ActiveDevice=0."""
+        expected_device = 0
+        async with self._command_lock:
+            before = await self.async_action("GetActiveDevice")
+            try:
+                active_device = int(before["ActiveDevice"])
+            except (KeyError, ValueError) as err:
+                raise MetzError("Cannot determine current TV source") from err
+            if active_device == expected_device:
+                return False
+            await self._async_send_key_unlocked(KEY_CODES["source"])
+            await asyncio.sleep(source_key_delay)
+            await self._async_send_key_unlocked(KEY_CODES["ok"])
+            await asyncio.sleep(settle_delay)
+            await self._async_confirm_source_unlocked("TV", expected_device)
+            return True
+
     async def async_select_f1_source(
         self,
         source: str,
@@ -353,21 +398,5 @@ class MetzClient:
             await asyncio.sleep(second_key_delay)
             await self._async_send_key_unlocked(KEY_CODES[f"digit_{button_number}"])
             await asyncio.sleep(settle_delay)
-            after = await self.async_action("GetActiveDevice")
-            try:
-                reported_active_device = int(after["ActiveDevice"])
-            except (KeyError, ValueError) as err:
-                raise MetzError("Cannot verify TV source after switching") from err
-            devices = await self.async_action("GetDeviceList")
-            try:
-                listed_active_device = int(devices["ActiveDevice"])
-            except (KeyError, ValueError) as err:
-                raise MetzError("Cannot verify TV source after switching") from err
-            if reported_active_device != expected_device:
-                await self._async_send_key_unlocked(KEY_CODES["exit"])
-                raise MetzError(
-                    f"{source} not confirmed: expected ActiveDevice="
-                    f"{expected_device}, GetActiveDevice={reported_active_device}, "
-                    f"GetDeviceList ActiveDevice={listed_active_device}"
-                )
+            await self._async_confirm_source_unlocked(source, expected_device)
             return True
