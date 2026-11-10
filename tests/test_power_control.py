@@ -158,7 +158,7 @@ def _make_player(
     return player, coordinator, api
 
 
-def test_turn_off_without_power_sensor_toggles_key_11():
+def test_turn_off_without_power_sensor_uses_key_11_when_soap_reports_on():
     mod, _, _ = _load_player()
     player, coord, api = _make_player(mod, power=0)
     asyncio.run(player.async_turn_off())
@@ -181,12 +181,15 @@ def test_turn_off_with_power_sensor_requires_on_threshold():
         asyncio.run(player.async_turn_off())
     assert api.sent == []
 
+    player, _, api = _make_player(mod, power=1)
+    with pytest.raises(HomeAssistantError, match="does not report"):
+        asyncio.run(player.async_turn_off())
+    assert api.sent == []
+
 
 def test_turn_on_sends_wol_to_configured_broadcast_without_power_key():
     mod, _, _ = _load_player()
-    player, _, api = _make_player(
-        mod, success=False, power_sensor="sensor.tv_power", power_watts=5
-    )
+    player, _, api = _make_player(mod, success=False, power=1)
     called = []
 
     async def send(hass, mac, broadcast):
@@ -200,18 +203,14 @@ def test_turn_on_sends_wol_to_configured_broadcast_without_power_key():
 
 def test_turn_on_requires_configured_mac():
     mod, _, HomeAssistantError = _load_player()
-    player, _, _ = _make_player(
-        mod, mac="", power=1, power_sensor="sensor.tv_power", power_watts=5
-    )
+    player, _, _ = _make_player(mod, mac="", power=1)
     with pytest.raises(HomeAssistantError, match="MAC address"):
         asyncio.run(player.async_turn_on())
 
 
 def test_turn_on_does_nothing_if_already_on():
     mod, _, _ = _load_player()
-    player, _, api = _make_player(
-        mod, power_sensor="sensor.tv_power", power_watts=80
-    )
+    player, _, api = _make_player(mod, power=0)
     called = []
 
     async def send(*_args):
@@ -236,11 +235,11 @@ def test_power_sensor_classifies_state_and_available_power_action():
         assert player.supported_features & expected_feature
         assert player.extra_state_attributes["power_watts"] == float(watts)
         assert player.extra_state_attributes["power_mode"] == {
-            80: "on", 20: "active", 5: "off",
+            80: "on", 20: "idle", 5: "off",
         }[watts]
 
 
-def test_soap_power_state_fallback_sets_state_and_toggles_power():
+def test_soap_power_state_fallback_uses_wol_for_off_to_on():
     mod, State, _ = _load_player()
     player, _, api = _make_player(mod, power=0)
     assert player.state == State.ON
@@ -251,8 +250,15 @@ def test_soap_power_state_fallback_sets_state_and_toggles_power():
     player, _, api = _make_player(mod, power=1)
     assert player.state == State.OFF
     assert player.supported_features & 2  # TURN_ON
+    called = []
+
+    async def send(hass, mac, broadcast):
+        called.append((mac, broadcast))
+
+    mod.async_send_magic_packet = send
     asyncio.run(player.async_turn_on())
-    assert api.sent == [11]
+    assert api.sent == []
+    assert called == [("AABBCCDDEEFF", "192.168.1.255")]
 
 
 def test_wol_packet_format_and_broadcast_target():

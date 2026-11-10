@@ -17,6 +17,7 @@ from homeassistant.const import CONF_HOST
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.ssdp import SsdpServiceInfo
+from homeassistant.helpers import selector
 
 from .api import MetzClient, MetzDescription, MetzError
 from .const import (
@@ -89,6 +90,15 @@ def _clean_power_sensor_entity_id(value: Any) -> str | None:
     if not re.fullmatch(r"sensor\.[a-z0-9_]+", entity_id):
         raise ValueError("Invalid power sensor entity ID")
     return entity_id
+
+
+def _power_sensor_selector() -> selector.EntitySelector:
+    """Offer available power-class sensor entities in the flow UI."""
+    return selector.EntitySelector(
+        selector.EntitySelectorConfig(
+            filter={"domain": "sensor", "device_class": "power"}
+        )
+    )
 
 
 class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -166,7 +176,7 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID): vol.All(
                 vol.Coerce(int), vol.Range(min=0, max=9)
             ),
-            vol.Optional(CONF_POWER_SENSOR_ENTITY_ID): str,
+            vol.Optional(CONF_POWER_SENSOR_ENTITY_ID): _power_sensor_selector(),
         }
         return self.async_show_form(
             step_id="user", data_schema=vol.Schema(schema_fields), errors=errors
@@ -232,7 +242,7 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID): vol.All(
                     vol.Coerce(int), vol.Range(min=0, max=9)
                 ),
-                vol.Optional(CONF_POWER_SENSOR_ENTITY_ID): str,
+                vol.Optional(CONF_POWER_SENSOR_ENTITY_ID): _power_sensor_selector(),
             }),
         )
 
@@ -298,7 +308,9 @@ class MetzRemoteOptionsFlow(config_entries.OptionsFlowWithReload):
         schema = {
             vol.Optional(CONF_MAC, default=mac_default): str,
             vol.Required(CONF_BROADCAST, default=broadcast_default): str,
-            vol.Optional(CONF_POWER_SENSOR_ENTITY_ID, default=power_sensor_default): str,
+            vol.Optional(
+                CONF_POWER_SENSOR_ENTITY_ID, default=power_sensor_default
+            ): _power_sensor_selector(),
         }
         if f1_default is None:
             schema[vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID)] = vol.All(

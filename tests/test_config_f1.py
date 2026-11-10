@@ -36,6 +36,13 @@ def load_flow():
         Coerce = staticmethod(lambda type_: type_)
         Range = staticmethod(lambda **kwargs: kwargs)
 
+    class EntitySelectorConfig(dict):
+        pass
+
+    class EntitySelector:
+        def __init__(self, config):
+            self.config = config
+
     class ConfigFlow:
         def __init_subclass__(cls, **kwargs):
             # Consume domain=<slug> as the real HA superclass does.
@@ -75,6 +82,11 @@ def load_flow():
         "homeassistant.const": stub("homeassistant.const", CONF_HOST="host"),
         "homeassistant.core": stub("homeassistant.core", callback=lambda f: f),
         "homeassistant.helpers": stub("homeassistant.helpers"),
+        "homeassistant.helpers.selector": stub(
+            "homeassistant.helpers.selector",
+            EntitySelector=EntitySelector,
+            EntitySelectorConfig=EntitySelectorConfig,
+        ),
         "homeassistant.helpers.aiohttp_client": stub("homeassistant.helpers.aiohttp_client", async_get_clientsession=lambda hass: None),
         "homeassistant.helpers.service_info": stub("homeassistant.helpers.service_info"),
         "homeassistant.helpers.service_info.ssdp": stub("homeassistant.helpers.service_info.ssdp", SsdpServiceInfo=object),
@@ -119,6 +131,10 @@ def test_new_setup_exposes_optional_f1_id_and_persists_valid_one():
     initial_form = asyncio.run(flow.async_step_user())
     assert KEY in [k.key for k in initial_form["data_schema"]]
     assert POWER_KEY in [k.key for k in initial_form["data_schema"]]
+    power_marker = next(k for k in initial_form["data_schema"] if k.key == POWER_KEY)
+    assert initial_form["data_schema"][power_marker].config == {
+        "filter": {"domain": "sensor", "device_class": "power"}
+    }
     created = asyncio.run(flow.async_step_user({
         "host": "192.168.1.131", "mac": "", "broadcast_address": "192.168.1.255",
         KEY: 0, POWER_KEY: "sensor.tv_power",

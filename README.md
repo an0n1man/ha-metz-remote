@@ -1,28 +1,31 @@
 # Metz Remote — Home Assistant custom integration
 
-Version **0.3.11**: adds optional Watt-based power detection and SOAP power-state toggle fallback.
+Version **0.3.12**: adds a filtered power-sensor entity selector to setup and Options.
 
 Experimental Home Assistant custom integration for **Metz Remote**, package
-version **0.3.11**, domain `metz_remote`.
+version **0.3.12**, domain `metz_remote`.
 
 The communication is local: the TV advertises `RCRService:1` SOAP on TCP 49200.
 It was discovered and the basics were tested with an actual Metz TV; this
 version's F1 source-button and active-device mappings have been confirmed by the user.
 
-## v0.3.11 - Power-aware state and controls
+## Current Behavior
 
-Set an optional Watt power-sensor entity in **Configure**. The media player
-reports **on** above 70 W, **idle** from more than 10 W through 70 W, and
-**off** at 10 W or below. It exposes only **Turn off** while power is on; in
-all other measured states it exposes **Turn on**. The current reading and
-classification are available as `power_watts` and `power_mode` attributes.
+### Power State And Controls
+
+Set an optional Watt power-sensor entity in **Configure**. The selector lists
+available sensor entities with the **power** device class. The media player
+reports **on** above 70 W, **idle** above 10 W through 70 W, and **off** at
+10 W or below. It exposes only **Turn off** while power is on; in all other
+measured states it exposes **Turn on**. The current reading and classification
+are available as `power_watts` and `power_mode` attributes.
 
 Without a configured power sensor, the integration uses the TV's SOAP
-`PowerState` to report **on** or **off**. In this fallback mode either power
-action sends Metz key `11` as a toggle rather than relying on separate on/off
-behavior.
+`PowerState` to report **on** or **off**. In both modes, **Turn off** sends
+Metz key `11` only from an on state. **Turn on** uses Wake-on-LAN from idle or
+off and requires a configured MAC address.
 
-## v0.3.10 - TV source selection
+### Source Selection
 
 The F1 source list uses these fixed visible button IDs:
 
@@ -46,7 +49,7 @@ or active-source reporting. On a mismatch, the integration sends **Exit** to
 leave the source menu and reports the failure.
 
 
-## v0.3.4 — Active source status
+### Active Source Status
 
 The `sensor` active-source state and the `media_player.source` property use
 the canonical RCRService `ActiveDevice` table. `GetDeviceList` remains useful
@@ -62,13 +65,33 @@ labels, `GetDeviceList` is therefore not used as the active-source lookup.
 Source selection, saved configuration, entity IDs, branding and command mappings
 are unchanged.
 
-## Changes in 0.3.3
+## Release Notes
+
+### v0.3.12
+
+- Replaced the free-text power-sensor field with a filtered power-entity selector.
+
+### v0.3.11
+
+- Added optional Watt-based power detection.
+- Uses SOAP `PowerState` when no power sensor is configured.
+- Turn-on uses Wake-on-LAN; turn-off sends key `11` only from on.
+
+### v0.3.10
+
+- Added direct TV source selection using `Source (49) -> OK (39)`.
+
+### v0.3.4
+
+- Introduced canonical active-source IDs for the supported inputs.
+
+### v0.3.3
 
 - Renamed the integration to **Metz Remote** in the manifest, setup labels, translations, and HACS metadata.
 - Kept the integration domain `metz_remote` and the Home Assistant device name `TV`.
 - No protocol, remote control or source-selection behavior changed.
 
-## Previous fixes (0.3.2)
+### v0.3.2
 
 - The F1 source-selection configuration field accepts the **visible digit 0–9**
   (rather than the raw SOAP ID 1–10), converts it to the actual SOAP KeyCode
@@ -78,7 +101,7 @@ are unchanged.
   Existing custom entry titles and manually renamed devices are not overwritten.
 - The working commands and TV status reporting remain unchanged.
 
-## Previous features (0.3.1)
+### v0.3.1
 
 - Removed the nonfunctional **Volume sensor**, including a targeted cleanup
   of the legacy `_volume` entity registry entry during sensor setup.
@@ -131,12 +154,8 @@ Devices & services → Metz Remote → Configure** to enter the F1 button ID.
 If you previously installed the much older `metz_classic` domain instead,
 remove that integration separately, and configure `metz_remote` as a new one.
 
-## Power and remote
+## Remote Controls
 
-- With a configured power sensor: turn on uses Wake-on-LAN, turn off sends
-  Metz power toggle (`11`) only from the high-power **on** state.
-- Without a power sensor: SOAP `PowerState` determines the reported on/off
-  state and either power action sends Metz power toggle (`11`).
 - Remote: `remote.send_command` exposes the APK-mapped keys (`f1`, `menu`,
   `epg`, `digit_0` ... `digit_9`, arrows, playback, etc.), including raw decimal
   key IDs. Each request uses a fresh TCP connection modeled on `metzctl`.

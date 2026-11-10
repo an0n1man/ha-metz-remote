@@ -14,7 +14,7 @@ def test_integration_branding_names():
     hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
     assert manifest["domain"] == "metz_remote"
     assert manifest["name"] == "Metz Remote"
-    assert manifest["version"] == "0.3.11"
+    assert manifest["version"] == "0.3.12"
     assert hacs["name"] == "Metz Remote"
     for path in (COMPONENT / "strings.json", COMPONENT / "translations" / "de.json", COMPONENT / "translations" / "en.json"):
         labels = json.loads(path.read_text(encoding="utf-8"))
