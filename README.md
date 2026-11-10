@@ -13,16 +13,16 @@ version's F1 source-button and active-device mappings have been confirmed by the
 
 The F1 source list uses these fixed visible button IDs:
 
-| Button | Source      | Expected ActiveDevice |
-| -----: | ----------- | --------------------: |
-| Source -> OK | TV | `0x00` (0) |
-|      1 | HDMI 1      |           `0x10` (16) |
-|      2 | HDMI 2      |           `0x11` (17) |
-|      3 | HDMI 3      |           `0x12` (18) |
-|      4 | HDMI 4      |           `0x13` (19) |
-|      5 | EURO        |                    22 |
-|      6 | Cinch AV    |                    23 |
-|      7 | Cinch Audio |                    54 |
+|       Button | Source      | Expected ActiveDevice |
+| -----------: | ----------- | --------------------: |
+| Source -> OK | TV          |            `0x00` (0) |
+|            1 | HDMI 1      |           `0x10` (16) |
+|            2 | HDMI 2      |           `0x11` (17) |
+|            3 | HDMI 3      |           `0x12` (18) |
+|            4 | HDMI 4      |           `0x13` (19) |
+|            5 | EURO        |                    22 |
+|            6 | Cinch AV    |                    23 |
+|            7 | Cinch Audio |                    54 |
 
 `TV` is always available for source selection and uses `Source (49) -> OK
 (39)`. The other seven sources require the configured F1 shortcut and use the
