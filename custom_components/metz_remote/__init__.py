@@ -18,8 +18,10 @@ from .api import (
 )
 from .const import (
     CONF_MAC, CONF_BROADCAST, CONF_F1_SOURCE_SELECTION_BUTTON_ID,
+    CONF_POWER_SENSOR_ENTITY_ID,
     DEFAULT_BROADCAST, DEFAULT_SCAN_INTERVAL, DOMAIN,
 )
+from .ping import async_ping
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = (Platform.MEDIA_PLAYER, Platform.REMOTE, Platform.SENSOR)
@@ -35,12 +37,15 @@ class MetzRuntime:
     mac: str | None
     broadcast_address: str
     f1_source_selection_button_id: int | None = None
+    power_sensor_entity_id: str | None = None
 
 
 class MetzCoordinator(DataUpdateCoordinator[MetzStatus]):
     """Poll state; never perform network IO inside entity properties."""
 
-    def __init__(self, hass: HomeAssistant, api: MetzClient) -> None:
+    def __init__(
+        self, hass: HomeAssistant, api: MetzClient, *, use_ping: bool
+    ) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -48,8 +53,12 @@ class MetzCoordinator(DataUpdateCoordinator[MetzStatus]):
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
         self.api = api
+        self._use_ping = use_ping
+        self.last_ping_success: bool | None = None
 
     async def _async_update_data(self) -> MetzStatus:
+        if self._use_ping:
+            self.last_ping_success = await async_ping(self.api.host)
         try:
             return await self.api.async_status()
         except MetzError as err:
@@ -82,7 +91,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # be diagnosed rather than silently treated as normal TV standby.
         raise ConfigEntryNotReady(f"TV description invalid: {err}") from err
 
-    coordinator = MetzCoordinator(hass, api)
+    power_sensor_entity_id = (
+        entry.options.get(
+            CONF_POWER_SENSOR_ENTITY_ID,
+            entry.data.get(CONF_POWER_SENSOR_ENTITY_ID),
+        )
+        or None
+    )
+    coordinator = MetzCoordinator(
+        hass, api, use_ping=power_sensor_entity_id is None
+    )
     # A startup poll may fail while the TV is asleep. async_refresh records
     # the failed update but (unlike first_refresh) does not block entity setup.
     # Subsequent polls restore availability automatically when the TV wakes.
@@ -99,6 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_F1_SOURCE_SELECTION_BUTTON_ID,
             entry.data.get(CONF_F1_SOURCE_SELECTION_BUTTON_ID),
         ),
+        power_sensor_entity_id=power_sensor_entity_id,
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

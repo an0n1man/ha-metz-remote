@@ -3,11 +3,14 @@
 DOMAIN = "metz_remote"
 CONF_MAC = "mac"
 CONF_BROADCAST = "broadcast_address"
+CONF_POWER_SENSOR_ENTITY_ID = "power_sensor_entity_id"
 DEFAULT_BROADCAST = "255.255.255.255"
 DEFAULT_PORT = 49200
 SERVICE_TYPE = "urn:metz.de:service:RCRService:1"
 DEVICE_TYPE = "urn:metz.de:device:RemoteControlReceiver:1"
 DEFAULT_SCAN_INTERVAL = 15
+POWER_OFF_WATTS = 10.0
+POWER_ON_WATTS = 70.0
 
 # Stored setting: SOAP key ID to press after F1 to open the TV's source list.
 # UI displays printed digit 0..9; config_flow stores digit + 1 (SOAP ID 1..10).

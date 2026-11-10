@@ -9,20 +9,24 @@
           "host": "IP-Adresse / Hostname",
           "mac": "MAC-Adresse (optional)",
           "broadcast_address": "Wake-on-LAN-Broadcast-Adresse",
-          "f1_source_selection_button_id": "F1-Quellenlisten-Taste (0–9, optional)"
+          "f1_source_selection_button_id": "F1-Quellenlisten-Taste (0–9, optional)",
+          "power_sensor_entity_id": "Leistungssensor-Entität (W, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden."
+          "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden.",
+          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um ICMP-Ping und einen Power-Toggle zu verwenden."
         }
       },
       "confirm": {
         "title": "Metz Remote gefunden",
         "description": "{name} zu Home Assistant hinzufügen?",
         "data": {
-          "f1_source_selection_button_id": "F1-Quellenlisten-Taste (0–9, optional)"
+          "f1_source_selection_button_id": "F1-Quellenlisten-Taste (0–9, optional)",
+          "power_sensor_entity_id": "Leistungssensor-Entität (W, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden."
+          "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden.",
+          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um ICMP-Ping und einen Power-Toggle zu verwenden."
         }
       }
     },
@@ -31,7 +35,8 @@
       "invalid_host": "Ungültige IP-Adresse / Hostname",
       "invalid_mac": "Ungültige MAC-Adresse",
       "invalid_broadcast": "Ungültige IPv4-Broadcast-Zieladresse",
-      "invalid_f1_button_id": "Ungültige F1-Quellenlisten-Taste (zulässig: 0–9)"
+      "invalid_f1_button_id": "Ungültige F1-Quellenlisten-Taste (zulässig: 0–9)",
+      "invalid_power_sensor": "Ungültige Leistungssensor-Entität"
     },
     "abort": {
       "already_configured": "Dieser Fernseher wurde bereits eingerichtet",
@@ -42,21 +47,24 @@
     "step": {
       "init": {
         "title": "TV-Einstellungen",
-        "description": "Wake-on-LAN und optional die F1-Quellenauswahl konfigurieren. Die Integration wird bei Änderungen neu geladen.",
+        "description": "Wake-on-LAN, die optionale F1-Quellenauswahl und die optionale Watt-basierte Leistungserkennung konfigurieren. Die Integration wird bei Änderungen neu geladen.",
         "data": {
           "mac": "MAC-Adresse (optional)",
           "broadcast_address": "Wake-on-LAN-Broadcast-Adresse",
-          "f1_source_selection_button_id": "F1-Quellenlisten-Taste (0–9, optional)"
+          "f1_source_selection_button_id": "F1-Quellenlisten-Taste (0–9, optional)",
+          "power_sensor_entity_id": "Leistungssensor-Entität (W, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden."
+          "f1_source_selection_button_id": "Ziffer auf der Fernbedienung (0–9), die nach F1 die Quellenliste öffnet. Die Integration rechnet sie automatisch in den SOAP-Tastencode um. Leer lassen, um die Quellenauswahl auszublenden.",
+          "power_sensor_entity_id": "Leistungssensor in Watt für die Erkennung des Betriebszustands. Leer lassen, um ICMP-Ping und einen Power-Toggle zu verwenden."
         }
       }
     },
     "error": {
       "invalid_mac": "Ungültige MAC-Adresse",
       "invalid_broadcast": "Ungültige IPv4-Broadcast-Zieladresse",
-      "invalid_f1_button_id": "Ungültige F1-Quellenlisten-Taste (zulässig: 0–9)"
+      "invalid_f1_button_id": "Ungültige F1-Quellenlisten-Taste (zulässig: 0–9)",
+      "invalid_power_sensor": "Ungültige Leistungssensor-Entität"
     }
   },
   "entity": {

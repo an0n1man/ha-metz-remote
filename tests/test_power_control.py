@@ -28,6 +28,7 @@ def _load_player():
     class MediaPlayerState:
         ON = "on"
         OFF = "off"
+        IDLE = "idle"
 
     class MediaPlayerEntityFeature:
         TURN_OFF = 1
@@ -63,6 +64,8 @@ def _load_player():
                 "Cinch Audio": (54, 7),
             },
             TV_SOURCE="TV",
+            POWER_OFF_WATTS=10.0,
+            POWER_ON_WATTS=70.0,
             KEY_CODES={"power": 11},
         ),
         pkgname + ".wol": _stub(pkgname + ".wol", async_send_magic_packet=None),
@@ -76,11 +79,16 @@ def _load_player():
             MediaPlayerState=MediaPlayerState,
         ),
         "homeassistant.config_entries": _stub("homeassistant.config_entries", ConfigEntry=object),
-        "homeassistant.core": _stub("homeassistant.core", HomeAssistant=object),
+        "homeassistant.core": _stub(
+            "homeassistant.core", HomeAssistant=object, callback=lambda func: func
+        ),
         "homeassistant.exceptions": _stub("homeassistant.exceptions", HomeAssistantError=HomeAssistantError),
         "homeassistant.helpers": _stub("homeassistant.helpers"),
         "homeassistant.helpers.device_registry": _stub("homeassistant.helpers.device_registry", DeviceInfo=dict),
         "homeassistant.helpers.entity_platform": _stub("homeassistant.helpers.entity_platform", AddEntitiesCallback=object),
+        "homeassistant.helpers.event": _stub(
+            "homeassistant.helpers.event", async_track_state_change_event=lambda *_: lambda: None
+        ),
         "homeassistant.helpers.update_coordinator": _stub("homeassistant.helpers.update_coordinator", CoordinatorEntity=CoordinatorEntity),
     }
     spec = importlib.util.spec_from_file_location(
@@ -97,9 +105,16 @@ def _load_player():
 
 
 class FakeCoordinator:
-    def __init__(self, *, power=0, success=True):
+    def __init__(self, *, power=0, success=True, ping=True):
         self.last_update_success = success
-        self.data = types.SimpleNamespace(power_state=power)
+        self.last_ping_success = ping
+        self.data = types.SimpleNamespace(
+            power_state=power,
+            operation_mode=1,
+            active_device=16,
+            devices={16: "HDMI 1"},
+            source_name="HDMI 1",
+        )
         self.refresh_count = 0
 
     async def async_refresh(self):
@@ -113,45 +128,67 @@ class FakeAPI:
         self.sent.append(code)
 
 
-def _make_player(module, *, mac="AABBCCDDEEFF", broadcast="192.168.1.255", power=0, success=True):
-    coordinator = FakeCoordinator(power=power, success=success)
+def _make_player(
+    module,
+    *,
+    mac="AABBCCDDEEFF",
+    broadcast="192.168.1.255",
+    power=0,
+    success=True,
+    ping=True,
+    power_sensor=None,
+    power_watts=None,
+):
+    coordinator = FakeCoordinator(power=power, success=success, ping=ping)
     api = FakeAPI()
     runtime = types.SimpleNamespace(
         coordinator=coordinator, api=api,
         description=types.SimpleNamespace(udn="uuid:123", name="Test TV"),
         mac=mac, broadcast_address=broadcast,
         f1_source_selection_button_id=None,
+        power_sensor_entity_id=power_sensor,
     )
     entry = types.SimpleNamespace(runtime_data=runtime)
     player = module.MetzMediaPlayer(entry)
-    player.hass = object()
+    states = types.SimpleNamespace(
+        get=lambda entity_id: (
+            types.SimpleNamespace(state=str(power_watts))
+            if entity_id == power_sensor and power_watts is not None else None
+        )
+    )
+    player.hass = types.SimpleNamespace(states=states)
     return player, coordinator, api
 
 
-def test_turn_off_uses_key_11_only_when_soap_reports_on():
+def test_turn_off_without_power_sensor_toggles_key_11():
     mod, _, _ = _load_player()
     player, coord, api = _make_player(mod, power=0)
     asyncio.run(player.async_turn_off())
     assert api.sent == [11]
-    assert coord.refresh_count == 1
+    assert coord.refresh_count == 0
 
 
-def test_turn_off_never_toggles_if_off_unknown_or_unreachable():
+def test_turn_off_with_power_sensor_requires_on_threshold():
     mod, _, HomeAssistantError = _load_player()
-    for power, available in ((1, True), (5, True), (0, False)):
-        player, coord, api = _make_player(mod, power=power, success=available)
-        if power == 1 and available:
-            asyncio.run(player.async_turn_off())
-        else:
-            with pytest.raises(HomeAssistantError, match="refusing to send"):
-                asyncio.run(player.async_turn_off())
-        assert api.sent == []
-        assert coord.refresh_count == 1
+    player, _, api = _make_player(
+        mod, power_sensor="sensor.tv_power", power_watts=80
+    )
+    asyncio.run(player.async_turn_off())
+    assert api.sent == [11]
+
+    player, _, api = _make_player(
+        mod, power_sensor="sensor.tv_power", power_watts=20
+    )
+    with pytest.raises(HomeAssistantError, match="does not report"):
+        asyncio.run(player.async_turn_off())
+    assert api.sent == []
 
 
 def test_turn_on_sends_wol_to_configured_broadcast_without_power_key():
     mod, _, _ = _load_player()
-    player, _, api = _make_player(mod, success=False)
+    player, _, api = _make_player(
+        mod, success=False, power_sensor="sensor.tv_power", power_watts=5
+    )
     called = []
 
     async def send(hass, mac, broadcast):
@@ -165,14 +202,18 @@ def test_turn_on_sends_wol_to_configured_broadcast_without_power_key():
 
 def test_turn_on_requires_configured_mac():
     mod, _, HomeAssistantError = _load_player()
-    player, _, _ = _make_player(mod, mac="", power=1)
+    player, _, _ = _make_player(
+        mod, mac="", power=1, power_sensor="sensor.tv_power", power_watts=5
+    )
     with pytest.raises(HomeAssistantError, match="MAC address"):
         asyncio.run(player.async_turn_on())
 
 
 def test_turn_on_does_nothing_if_already_on():
     mod, _, _ = _load_player()
-    player, _, api = _make_player(mod, power=0)
+    player, _, api = _make_player(
+        mod, power_sensor="sensor.tv_power", power_watts=80
+    )
     called = []
 
     async def send(*_args):
@@ -181,6 +222,39 @@ def test_turn_on_does_nothing_if_already_on():
     mod.async_send_magic_packet = send
     asyncio.run(player.async_turn_on())
     assert not called and api.sent == []
+
+
+def test_power_sensor_classifies_state_and_available_power_action():
+    mod, State, _ = _load_player()
+    for watts, expected_state, expected_feature in (
+        (80, State.ON, 1),
+        (20, State.IDLE, 2),
+        (5, State.OFF, 2),
+    ):
+        player, _, _ = _make_player(
+            mod, power_sensor="sensor.tv_power", power_watts=watts
+        )
+        assert player.state == expected_state
+        assert player.supported_features & expected_feature
+        assert player.extra_state_attributes["power_watts"] == float(watts)
+        assert player.extra_state_attributes["power_mode"] == {
+            80: "on", 20: "active", 5: "off",
+        }[watts]
+
+
+def test_ping_fallback_sets_state_and_toggles_power():
+    mod, State, _ = _load_player()
+    player, _, api = _make_player(mod, ping=True)
+    assert player.state == State.ON
+    assert player.supported_features & 1  # TURN_OFF
+    asyncio.run(player.async_turn_off())
+    assert api.sent == [11]
+
+    player, _, api = _make_player(mod, ping=False)
+    assert player.state == State.OFF
+    assert player.supported_features & 2  # TURN_ON
+    asyncio.run(player.async_turn_on())
+    assert api.sent == [11]
 
 
 def test_wol_packet_format_and_broadcast_target():

@@ -9,20 +9,24 @@
           "host": "TV IP address / hostname",
           "mac": "MAC address (optional)",
           "broadcast_address": "Wake-on-LAN broadcast address",
-          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)"
+          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)",
+          "power_sensor_entity_id": "Power sensor entity (W, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection."
+          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection.",
+          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use ICMP ping and toggle power."
         }
       },
       "confirm": {
         "title": "Discovered Metz Remote",
         "description": "Add {name} to Home Assistant?",
         "data": {
-          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)"
+          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)",
+          "power_sensor_entity_id": "Power sensor entity (W, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection."
+          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection.",
+          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use ICMP ping and toggle power."
         }
       }
     },
@@ -31,7 +35,8 @@
       "invalid_host": "Invalid IP address / hostname",
       "invalid_mac": "Invalid MAC address",
       "invalid_broadcast": "Invalid IPv4 broadcast destination",
-      "invalid_f1_button_id": "Invalid F1 source-menu button (valid: 0–9)"
+      "invalid_f1_button_id": "Invalid F1 source-menu button (valid: 0–9)",
+      "invalid_power_sensor": "Invalid power sensor entity ID"
     },
     "abort": {
       "already_configured": "This TV is already configured",
@@ -42,21 +47,24 @@
     "step": {
       "init": {
         "title": "TV settings",
-        "description": "Configure WOL and the optional F1 source-selection shortcut; the integration reloads when changed.",
+        "description": "Configure WOL, the optional F1 source-selection shortcut, and optional Watt-based power detection; the integration reloads when changed.",
         "data": {
           "mac": "MAC address (optional)",
           "broadcast_address": "Wake-on-LAN broadcast address",
-          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)"
+          "f1_source_selection_button_id": "F1 source-menu button (0–9, optional)",
+          "power_sensor_entity_id": "Power sensor entity (W, optional)"
         },
         "data_description": {
-          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection."
+          "f1_source_selection_button_id": "Number printed on the remote button pressed after F1 to open the source list (0–9). The integration converts it to the correct SOAP key code. Leave blank to disable source selection.",
+          "power_sensor_entity_id": "Watt sensor used for power state detection. Leave blank to use ICMP ping and toggle power."
         }
       }
     },
     "error": {
       "invalid_mac": "Invalid MAC address",
       "invalid_broadcast": "Invalid IPv4 broadcast destination",
-      "invalid_f1_button_id": "Invalid F1 source-menu button (valid: 0–9)"
+      "invalid_f1_button_id": "Invalid F1 source-menu button (valid: 0–9)",
+      "invalid_power_sensor": "Invalid power sensor entity ID"
     }
   },
   "entity": {

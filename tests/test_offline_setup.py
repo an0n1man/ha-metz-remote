@@ -61,6 +61,9 @@ def setup_module_with_fake_ha():
         "homeassistant.helpers.aiohttp_client": mod(
             "homeassistant.helpers.aiohttp_client", async_get_clientsession=lambda hass: object()
         ),
+        "metz_offline_fixture.ping": mod(
+            "metz_offline_fixture.ping", async_ping=lambda host: _ping_false()
+        ),
         "homeassistant.helpers.update_coordinator": mod(
             "homeassistant.helpers.update_coordinator",
             DataUpdateCoordinator=FakeCoordinator,
@@ -87,11 +90,16 @@ def setup_module_with_fake_ha():
     return module, ConfigEntryNotReady
 
 
+async def _ping_false() -> bool:
+    return False
+
+
 def test_offline_setup_uses_saved_udn_and_loads_entities():
     setup, _ = setup_module_with_fake_ha()
 
     class FakeApi:
         def __init__(self, session, host):
+            self.host = host
             self.control_url = f"http://{host}:49200/services/rcr/control/RCRService"
 
         async def async_description(self):
@@ -129,6 +137,7 @@ def test_offline_setup_does_not_invent_unverified_udn():
 
     class FakeApi:
         def __init__(self, session, host):
+            self.host = host
             self.control_url = f"http://{host}:49200/services/rcr/control/RCRService"
 
         async def async_description(self):
@@ -148,12 +157,35 @@ def test_offline_setup_does_not_invent_unverified_udn():
         asyncio.run(setup.async_setup_entry(Hass(), Entry()))
 
 
+def test_coordinator_uses_ping_without_a_power_sensor():
+    setup, _ = setup_module_with_fake_ha()
+    pinged = []
+
+    async def ping(host):
+        pinged.append(host)
+        return True
+
+    setup.async_ping = ping
+
+    class Api:
+        host = "192.168.1.131"
+
+        async def async_status(self):
+            return setup.MetzStatus(1, 0, 16, {16: "HDMI 1"})
+
+    coordinator = setup.MetzCoordinator(object(), Api(), use_ping=True)
+    assert asyncio.run(coordinator._async_update_data()).active_device == 16
+    assert pinged == ["192.168.1.131"]
+    assert coordinator.last_ping_success is True
+
+
 def test_options_override_initial_wol_configuration():
     """An existing config entry can gain WOL later through OptionsFlow."""
     setup, _ = setup_module_with_fake_ha()
 
     class FakeApi:
         def __init__(self, session, host):
+            self.host = host
             self.control_url = f"http://{host}:49200/services/rcr/control/RCRService"
 
         async def async_description(self):
@@ -171,7 +203,11 @@ def test_options_override_initial_wol_configuration():
         unique_id = "uuid:known"
         title = "TV"
         data = {"host": "192.168.1.131", "mac": ""}
-        options = {"mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255"}
+        options = {
+            "mac": "AABBCCDDEEFF",
+            "broadcast_address": "192.168.1.255",
+            "power_sensor_entity_id": "sensor.tv_power",
+        }
 
     class Hass:
         config_entries = types.SimpleNamespace(async_forward_entry_setups=_forward)
@@ -180,6 +216,7 @@ def test_options_override_initial_wol_configuration():
     assert asyncio.run(setup.async_setup_entry(Hass(), entry))
     assert entry.runtime_data.mac == "AABBCCDDEEFF"
     assert entry.runtime_data.broadcast_address == "192.168.1.255"
+    assert entry.runtime_data.power_sensor_entity_id == "sensor.tv_power"
 
 
 def test_canonical_analogue_active_ids_have_fixed_names():

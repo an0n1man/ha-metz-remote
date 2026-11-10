@@ -14,6 +14,7 @@ import pytest
 
 COMPONENT_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "metz_remote"
 KEY = "f1_source_selection_button_id"
+POWER_KEY = "power_sensor_entity_id"
 
 
 def load_flow():
@@ -97,6 +98,16 @@ def test_f1_config_validation():
             mod._clean_f1_source_button_id(invalid)
 
 
+def test_power_sensor_entity_validation():
+    mod = load_flow()
+    assert mod._clean_power_sensor_entity_id(None) is None
+    assert mod._clean_power_sensor_entity_id("") is None
+    assert mod._clean_power_sensor_entity_id(" Sensor.TV_Power ") == "sensor.tv_power"
+    for invalid in (True, "switch.tv", "sensor.bad-id", "sensor."):
+        with pytest.raises(ValueError):
+            mod._clean_power_sensor_entity_id(invalid)
+
+
 def test_new_setup_exposes_optional_f1_id_and_persists_valid_one():
     mod = load_flow()
     flow = mod.MetzRemoteConfigFlow()
@@ -107,11 +118,13 @@ def test_new_setup_exposes_optional_f1_id_and_persists_valid_one():
     flow._probe = probe
     initial_form = asyncio.run(flow.async_step_user())
     assert KEY in [k.key for k in initial_form["data_schema"]]
+    assert POWER_KEY in [k.key for k in initial_form["data_schema"]]
     created = asyncio.run(flow.async_step_user({
         "host": "192.168.1.131", "mac": "", "broadcast_address": "192.168.1.255",
-        KEY: 0,
+        KEY: 0, POWER_KEY: "sensor.tv_power",
     }))
     assert created["data"][KEY] == 1
+    assert created["data"][POWER_KEY] == "sensor.tv_power"
     assert created["data"]["host"] == "192.168.1.131"
     assert created["title"] == "TV"
     blank = asyncio.run(flow.async_step_user({
@@ -124,7 +137,10 @@ def test_options_can_set_and_clear_f1_id_without_removing_existing_entry():
     mod = load_flow()
     flow = mod.MetzRemoteOptionsFlow()
     flow.config_entry = types.SimpleNamespace(
-        data={"mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255", KEY: 5},
+        data={
+            "mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255",
+            KEY: 5, POWER_KEY: "sensor.old_power",
+        },
         options={},
     )
     form = asyncio.run(flow.async_step_init())
@@ -132,16 +148,21 @@ def test_options_can_set_and_clear_f1_id_without_removing_existing_entry():
     # Previous v0.3.1 saved SOAP code 5 for physical digit 4.
     assert f1_marker.default == 4
     assert form["data_schema"][f1_marker][1] == {"min": 0, "max": 9}
+    power_marker = next(k for k in form["data_schema"] if k.key == POWER_KEY)
+    assert power_marker.default == "sensor.old_power"
     changed = asyncio.run(flow.async_step_init({
         "mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255", KEY: 9,
+        POWER_KEY: "sensor.tv_power",
     }))
     assert changed["data"][KEY] == 10
+    assert changed["data"][POWER_KEY] == "sensor.tv_power"
     cleared = asyncio.run(flow.async_step_init({
         "mac": "AABBCCDDEEFF", "broadcast_address": "192.168.1.255",
     }))
     # Explicit None overrides old entry.data to disable SELECT_SOURCE.
     assert KEY in cleared["data"]
     assert cleared["data"][KEY] is None
+    assert cleared["data"][POWER_KEY] is None
 
 
 def test_all_f1_forms_offer_digits_zero_through_nine():
@@ -155,6 +176,7 @@ def test_all_f1_forms_offer_digits_zero_through_nine():
     for form in (user_form, confirm_form, options_form):
         marker = next(k for k in form["data_schema"] if k.key == KEY)
         assert form["data_schema"][marker][1] == {"min": 0, "max": 9}
+        assert POWER_KEY in [field.key for field in form["data_schema"]]
 
 
 def test_existing_f1_config_remains_compatible_on_options_save():

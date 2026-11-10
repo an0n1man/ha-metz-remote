@@ -21,6 +21,7 @@ from homeassistant.helpers.service_info.ssdp import SsdpServiceInfo
 from .api import MetzClient, MetzDescription, MetzError
 from .const import (
     CONF_BROADCAST, CONF_MAC, CONF_F1_SOURCE_SELECTION_BUTTON_ID,
+    CONF_POWER_SENSOR_ENTITY_ID,
     DEFAULT_BROADCAST, DOMAIN,
 )
 
@@ -78,6 +79,18 @@ def _clean_f1_source_button_id(value: Any) -> int | None:
     return keycode + 1
 
 
+def _clean_power_sensor_entity_id(value: Any) -> str | None:
+    """Validate an optional Watt power-sensor entity ID."""
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Invalid power sensor entity ID")
+    entity_id = value.strip().lower()
+    if not re.fullmatch(r"sensor\.[a-z0-9_]+", entity_id):
+        raise ValueError("Invalid power sensor entity ID")
+    return entity_id
+
+
 class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Set up by manual IP or SSDP announcement."""
 
@@ -125,6 +138,12 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             except ValueError:
                 errors[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = "invalid_f1_button_id"
+            try:
+                power_sensor = _clean_power_sensor_entity_id(
+                    user_input.get(CONF_POWER_SENSOR_ENTITY_ID)
+                )
+            except ValueError:
+                errors[CONF_POWER_SENSOR_ENTITY_ID] = "invalid_power_sensor"
             if not errors:
                 try:
                     description = await self._probe(host)
@@ -137,6 +156,8 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_BROADCAST: broadcast}
                     if f1_id is not None:
                         data[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = f1_id
+                    if power_sensor is not None:
+                        data[CONF_POWER_SENSOR_ENTITY_ID] = power_sensor
                     return self.async_create_entry(title="TV", data=data)
         schema_fields = {
             vol.Required(CONF_HOST, default=self._discovered_host or ""): str,
@@ -145,6 +166,7 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID): vol.All(
                 vol.Coerce(int), vol.Range(min=0, max=9)
             ),
+            vol.Optional(CONF_POWER_SENSOR_ENTITY_ID): str,
         }
         return self.async_show_form(
             step_id="user", data_schema=vol.Schema(schema_fields), errors=errors
@@ -186,11 +208,19 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             except ValueError:
                 errors[CONF_BROADCAST] = "invalid_broadcast"
+            try:
+                power_sensor = _clean_power_sensor_entity_id(
+                    user_input.get(CONF_POWER_SENSOR_ENTITY_ID)
+                )
+            except ValueError:
+                errors[CONF_POWER_SENSOR_ENTITY_ID] = "invalid_power_sensor"
             if not errors:
                 data = {CONF_HOST: self._discovered_host, CONF_MAC: mac,
                         CONF_BROADCAST: broadcast}
                 if f1_id is not None:
                     data[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = f1_id
+                if power_sensor is not None:
+                    data[CONF_POWER_SENSOR_ENTITY_ID] = power_sensor
                 return self.async_create_entry(
                     title="TV", data=data,
                 )
@@ -202,6 +232,7 @@ class MetzRemoteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID): vol.All(
                     vol.Coerce(int), vol.Range(min=0, max=9)
                 ),
+                vol.Optional(CONF_POWER_SENSOR_ENTITY_ID): str,
             }),
         )
 
@@ -229,6 +260,12 @@ class MetzRemoteOptionsFlow(config_entries.OptionsFlowWithReload):
                 )
             except ValueError:
                 errors[CONF_F1_SOURCE_SELECTION_BUTTON_ID] = "invalid_f1_button_id"
+            try:
+                power_sensor = _clean_power_sensor_entity_id(
+                    user_input.get(CONF_POWER_SENSOR_ENTITY_ID)
+                )
+            except ValueError:
+                errors[CONF_POWER_SENSOR_ENTITY_ID] = "invalid_power_sensor"
             if not errors:
                 # Keep explicit None when cleared, overriding a value initially
                 # saved in entry.data on older installations.
@@ -236,6 +273,7 @@ class MetzRemoteOptionsFlow(config_entries.OptionsFlowWithReload):
                     CONF_MAC: mac,
                     CONF_BROADCAST: broadcast,
                     CONF_F1_SOURCE_SELECTION_BUTTON_ID: f1_id,
+                    CONF_POWER_SENSOR_ENTITY_ID: power_sensor,
                 }
                 return self.async_create_entry(data=data)
 
@@ -253,9 +291,14 @@ class MetzRemoteOptionsFlow(config_entries.OptionsFlowWithReload):
             int(stored_f1_keycode) - 1
             if stored_f1_keycode is not None else None
         )
+        power_sensor_default = entry.options.get(
+            CONF_POWER_SENSOR_ENTITY_ID,
+            entry.data.get(CONF_POWER_SENSOR_ENTITY_ID, ""),
+        )
         schema = {
             vol.Optional(CONF_MAC, default=mac_default): str,
             vol.Required(CONF_BROADCAST, default=broadcast_default): str,
+            vol.Optional(CONF_POWER_SENSOR_ENTITY_ID, default=power_sensor_default): str,
         }
         if f1_default is None:
             schema[vol.Optional(CONF_F1_SOURCE_SELECTION_BUTTON_ID)] = vol.All(

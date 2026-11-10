@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from homeassistant.components.media_player import (
     MediaPlayerDeviceClass,
     MediaPlayerEntity,
@@ -9,15 +11,23 @@ from homeassistant.components.media_player import (
     MediaPlayerState,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import MetzCoordinator
 from .api import MetzError
-from .const import DOMAIN, KEY_CODES, SOURCE_BUTTONS, TV_SOURCE
+from .const import (
+    DOMAIN,
+    KEY_CODES,
+    POWER_OFF_WATTS,
+    POWER_ON_WATTS,
+    SOURCE_BUTTONS,
+    TV_SOURCE,
+)
 from .wol import async_send_magic_packet
 
 
@@ -47,28 +57,81 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             name="TV",
         )
         self._attr_supported_features = (
-            MediaPlayerEntityFeature.TURN_OFF
-            | MediaPlayerEntityFeature.VOLUME_STEP
+            MediaPlayerEntityFeature.VOLUME_STEP
             | MediaPlayerEntityFeature.NEXT_TRACK
             | MediaPlayerEntityFeature.PREVIOUS_TRACK
             | MediaPlayerEntityFeature.SELECT_SOURCE
         )
-        if runtime.mac:
-            self._attr_supported_features |= MediaPlayerEntityFeature.TURN_ON
+
+    async def async_added_to_hass(self) -> None:
+        """Refresh the entity when its configured power sensor changes."""
+        await super().async_added_to_hass()
+        entity_id = self.runtime.power_sensor_entity_id
+        if entity_id:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [entity_id], self._async_power_sensor_changed
+                )
+            )
+
+    @callback
+    def _async_power_sensor_changed(self, _event) -> None:
+        self.async_write_ha_state()
+
+    def _power_watts(self) -> float | None:
+        """Return the configured power sensor's Watt reading, if usable."""
+        entity_id = self.runtime.power_sensor_entity_id
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return None
+        try:
+            watts = float(state.state)
+        except (TypeError, ValueError):
+            return None
+        return watts if math.isfinite(watts) else None
+
+    def _power_mode(self) -> str | None:
+        """Classify power-sensor readings or use ping when no sensor exists."""
+        if self.runtime.power_sensor_entity_id:
+            watts = self._power_watts()
+            if watts is None:
+                return None
+            if watts > POWER_ON_WATTS:
+                return "on"
+            if watts > POWER_OFF_WATTS:
+                return "active"
+            return "off"
+        return "on" if self.coordinator.last_ping_success else "off"
+
+    @property
+    def supported_features(self):
+        """Offer only the safe power action for the current power mode."""
+        features = self._attr_supported_features
+        if self._power_mode() == "on":
+            return features | MediaPlayerEntityFeature.TURN_OFF
+        return features | MediaPlayerEntityFeature.TURN_ON
 
     @property
     def available(self) -> bool:
         """Allow Wake-on-LAN even when the SOAP service is asleep."""
-        return self.coordinator.last_update_success or bool(self.runtime.mac)
+        return (
+            self.coordinator.last_update_success
+            or self.coordinator.last_ping_success is not None
+            or bool(self.runtime.mac)
+            or bool(self.runtime.power_sensor_entity_id)
+        )
 
     @property
     def state(self) -> MediaPlayerState | None:
-        """PowerState=0 was observed while ON; other values are not fully mapped."""
-        if not self.coordinator.last_update_success:
-            return MediaPlayerState.OFF if self.runtime.mac else None
-        if self.coordinator.data.power_state == 0:
+        """Report power-sensor state, or reachability when no sensor is set."""
+        power_mode = self._power_mode()
+        if power_mode == "on":
             return MediaPlayerState.ON
-        if self.coordinator.data.power_state == 1:
+        if power_mode == "active":
+            return MediaPlayerState.IDLE
+        if power_mode == "off":
             return MediaPlayerState.OFF
         return None
 
@@ -86,7 +149,7 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
         return [TV_SOURCE, *SOURCE_BUTTONS]
 
     @property
-    def extra_state_attributes(self) -> dict[str, int | list[str]] | None:
+    def extra_state_attributes(self) -> dict[str, float | int | list[str] | str | None] | None:
         if not self.coordinator.last_update_success:
             return None
         status = self.coordinator.data
@@ -95,6 +158,8 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             "operation_mode_raw": status.operation_mode,
             "active_device_raw": status.active_device,
             "detected_sources": list(status.devices.values()),
+            "power_watts": self._power_watts(),
+            "power_mode": self._power_mode(),
         }
 
     async def _key(self, code: int) -> None:
@@ -140,35 +205,21 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
         await self._key(KEY_CODES["channel_down"])
 
     async def async_turn_off(self) -> None:
-        """Send POWER TOGGLE (11), but only after confirming TV is ON.
-
-        The Metz API exposes a toggle, not separate on/off commands. Refresh
-        the SOAP state immediately before sending to avoid acting on a stale
-        coordinator value (which can be up to 15 seconds old).
-        """
-        await self.coordinator.async_refresh()
-        if not self.coordinator.last_update_success:
-            # We cannot reliably distinguish standby from a network failure.
-            # Sending the power toggle could turn on an already sleeping TV.
-            raise HomeAssistantError(
-                "Cannot verify TV is on; refusing to send Metz power toggle"
-            )
-        if self.coordinator.data.power_state == 1:
-            return  # Already off, based on TV's reported PowerState.
-        if self.coordinator.data.power_state != 0:
-            raise HomeAssistantError(
-                "Unknown Metz PowerState; refusing to send power toggle"
-            )
+        """Turn off from a confirmed high-power state, or toggle without a sensor."""
+        if self.runtime.power_sensor_entity_id and self._power_mode() != "on":
+            raise HomeAssistantError("TV power sensor does not report the TV as on")
         await self._key(KEY_CODES["power"])
-        # Next scheduled SOAP poll (every 15s) updates the reported state.
 
     async def async_turn_on(self) -> None:
-        """Wake with a magic packet; never use Metz's power-toggle for ON."""
+        """Toggle without a sensor; otherwise wake from a non-on power state."""
+        if not self.runtime.power_sensor_entity_id:
+            await self._key(KEY_CODES["power"])
+            return
         if not self.runtime.mac:
             raise HomeAssistantError(
                 "Wake-on-LAN needs a MAC address. Set it in integration options."
             )
-        if self.state == MediaPlayerState.ON:
+        if self._power_mode() == "on":
             return
         try:
             await async_send_magic_packet(
@@ -178,3 +229,12 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             raise HomeAssistantError(f"Could not send Metz Wake-on-LAN: {err}") from err
         # WOL only sends a packet, not proof the TV turned on. The coordinator
         # polls the TV every 15s and determines the actual state from SOAP.
+
+    async def async_toggle(self) -> None:
+        """Toggle the Metz power key without a sensor, else choose safely."""
+        if not self.runtime.power_sensor_entity_id:
+            await self._key(KEY_CODES["power"])
+        elif self._power_mode() == "on":
+            await self.async_turn_off()
+        else:
+            await self.async_turn_on()
