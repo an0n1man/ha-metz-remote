@@ -47,16 +47,26 @@ def _import_real_sensor_module():
     package.__path__ = [str(ROOT)]
     stubs = {
         package_name: package,
-        package_name + ".const": stub(package_name + ".const", DOMAIN="metz_remote"),
+        package_name + ".const": stub(
+            package_name + ".const",
+            DOMAIN="metz_remote",
+            POWER_OFF_WATTS=10.0,
+            POWER_ON_WATTS=70.0,
+        ),
         "homeassistant": stub("homeassistant"),
         "homeassistant.components": stub("homeassistant.components"),
         "homeassistant.components.sensor": stub("homeassistant.components.sensor", SensorEntity=object),
         "homeassistant.config_entries": stub("homeassistant.config_entries", ConfigEntry=object),
-        "homeassistant.core": stub("homeassistant.core", HomeAssistant=object),
+        "homeassistant.core": stub(
+            "homeassistant.core", HomeAssistant=object, callback=lambda func: func
+        ),
         "homeassistant.helpers": stub("homeassistant.helpers"),
         "homeassistant.helpers.device_registry": stub("homeassistant.helpers.device_registry", DeviceInfo=dict),
         "homeassistant.helpers.entity_registry": stub("homeassistant.helpers.entity_registry", async_get=lambda hass: hass.registry),
         "homeassistant.helpers.entity_platform": stub("homeassistant.helpers.entity_platform", AddEntitiesCallback=object),
+        "homeassistant.helpers.event": stub(
+            "homeassistant.helpers.event", async_track_state_change_event=lambda *_: lambda: None
+        ),
         "homeassistant.helpers.update_coordinator": stub("homeassistant.helpers.update_coordinator", CoordinatorEntity=CoordinatorEntity),
     }
     spec = importlib.util.spec_from_file_location(
@@ -72,7 +82,7 @@ def _import_real_sensor_module():
     return mod
 
 
-def _make_entities(mod, *, powered=0, success=True, source=16):
+def _make_entities(mod, *, powered=0, success=True, source=16, power_sensor=None):
     source_names = {
         0: "Metz-TV",
         16: "HDMI 1",
@@ -98,6 +108,7 @@ def _make_entities(mod, *, powered=0, success=True, source=16):
     runtime = types.SimpleNamespace(
         coordinator=coord,
         description=types.SimpleNamespace(udn="uuid:123", name="My Metz"),
+        power_sensor_entity_id=power_sensor,
     )
     entry = types.SimpleNamespace(runtime_data=runtime)
     return mod.MetzSourceSensor(entry)
@@ -152,11 +163,43 @@ def test_active_source_uses_canonical_analogue_id():
     }
 
 
+def test_internal_tv_state_sensor_uses_power_sensor_classification():
+    mod = _import_real_sensor_module()
+    source = _make_entities(mod, power_sensor="sensor.tv_power")
+    internal_state = mod.MetzInternalTVStateSensor(
+        types.SimpleNamespace(runtime_data=source.runtime)
+    )
+    for watts, expected in ((80, "on"), (20, "idle"), (5, "off")):
+        internal_state.hass = types.SimpleNamespace(
+            states=types.SimpleNamespace(
+                get=lambda _entity_id, watts=watts: types.SimpleNamespace(state=str(watts))
+            )
+        )
+        assert internal_state.native_value == expected
+    assert internal_state._attr_unique_id == "uuid:123_internal_tv_state"
+    assert internal_state._attr_translation_key == "internal_tv_state"
+
+
+def test_internal_tv_state_sensor_falls_back_to_soap_power_state():
+    mod = _import_real_sensor_module()
+    for powered, expected in ((0, "on"), (1, "off"), (5, None)):
+        source = _make_entities(mod, powered=powered)
+        internal_state = mod.MetzInternalTVStateSensor(
+            types.SimpleNamespace(runtime_data=source.runtime)
+        )
+        assert internal_state.native_value == expected
+
+
 
 def test_translated_entity_names_are_present():
-    for name, lang in (("strings.json", "Active source"), ("translations/en.json", "Active source"), ("translations/de.json", "Aktive Quelle")):
+    for name, active_source, internal_state in (
+        ("strings.json", "Active source", "Internal TV state"),
+        ("translations/en.json", "Active source", "Internal TV state"),
+        ("translations/de.json", "Aktive Quelle", "Interner TV-Status"),
+    ):
         data = json.loads((ROOT/name).read_text())
-        assert data["entity"]["sensor"]["active_source"]["name"] == lang
+        assert data["entity"]["sensor"]["active_source"]["name"] == active_source
+        assert data["entity"]["sensor"]["internal_tv_state"]["name"] == internal_state
         assert "volume" not in data["entity"]["sensor"]
 
 
@@ -183,8 +226,9 @@ def test_volume_registry_entry_is_removed_on_upgrade():
     entities = []
     asyncio.run(mod.async_setup_entry(hass, types.SimpleNamespace(runtime_data=runtime), entities.extend))
     assert removed == ["sensor.metz_tv_volume"]
-    assert len(entities) == 1
+    assert len(entities) == 2
     assert isinstance(entities[0], mod.MetzSourceSensor)
+    assert isinstance(entities[1], mod.MetzInternalTVStateSensor)
 
 
 def test_sensor_preserves_tv_reported_custom_input_name():

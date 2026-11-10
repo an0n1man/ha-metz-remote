@@ -27,6 +27,13 @@ Without a configured power sensor, the integration uses the TV's SOAP
 Metz key `11` only from an on state. **Turn on** uses Wake-on-LAN from idle or
 off and requires a configured MAC address.
 
+### Internal TV State Sensor
+
+The **Internal TV state** sensor exposes the three-way state separately from
+the media-player UI: **on** above 70 W, **idle** above 10 W through 70 W, and
+**off** at 10 W or below. Without a configured power sensor, it falls back to
+SOAP `PowerState` and reports only **on** or **off**.
+
 ### Source Selection
 
 The F1 source list uses these fixed visible button IDs:

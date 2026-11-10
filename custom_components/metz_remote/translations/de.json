@@ -71,6 +71,9 @@
     "sensor": {
       "active_source": {
         "name": "Aktive Quelle"
+      },
+      "internal_tv_state": {
+        "name": "Interner TV-Status"
       }
     }
   }
