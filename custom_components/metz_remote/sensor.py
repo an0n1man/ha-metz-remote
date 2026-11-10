@@ -56,24 +56,40 @@ class MetzSourceSensor(MetzBaseSensor):
         self._attr_unique_id = f"{self.runtime.description.udn}_active_source"
 
     @property
+    def available(self) -> bool:
+        """Keep the sensor available to expose unknown during TV startup."""
+        return (
+            self.coordinator.last_update_success
+            or self.coordinator.active_source_unknown
+        )
+
+    @property
     def native_value(self) -> str | None:
         """Report current source when TV is on and the service is reachable."""
+        if self.coordinator.active_source_unknown:
+            return None
         if not self.coordinator.last_update_success or self.coordinator.data is None:
             return None
         status = self.coordinator.data
         if status.power_state != 0:
             return None
-        return status.source_name
+        return self.coordinator.source_name
 
     @property
     def extra_state_attributes(self) -> dict[str, int | str | None] | None:
         """Expose both friendly name and numeric source for automation."""
+        if self.coordinator.active_source_unknown:
+            return {
+                "active_device_id": None,
+                "active_device_hex": None,
+                "source": None,
+            }
         if not self.coordinator.last_update_success or self.coordinator.data is None:
             return None
         status = self.coordinator.data
         return {
             "active_device_id": status.active_device,
             "active_device_hex": f"0x{status.active_device:02X}",
-            "source": status.source_name,
+            "source": self.coordinator.source_name,
         }
 

@@ -206,7 +206,12 @@ class MetzClient:
                     await asyncio.sleep(0.2)
                     continue
                 raise MetzConnectionError(f"SOAP {action} failed: {err}") from err
-            except (aiohttp.ClientError, TimeoutError, ET.ParseError) as err:
+            except TimeoutError as err:
+                if attempt + 1 < attempts:
+                    await asyncio.sleep(0.2)
+                    continue
+                raise MetzConnectionError(f"SOAP {action} failed: {err}") from err
+            except (aiohttp.ClientError, ET.ParseError) as err:
                 raise MetzError(f"SOAP {action} failed: {err}") from err
         body = root.find(f"{{{SOAP_NS}}}Body")
         if body is None:

@@ -50,12 +50,19 @@ def _load_player():
     class DummyApiError(Exception):
         pass
 
+    class DummyConnectionError(DummyApiError):
+        pass
+
     pkgname = "metz_power_fixture"
     pkg = _stub(pkgname, MetzCoordinator=object)
     pkg.__path__ = [str(ROOT)]
     stubs = {
         pkgname: pkg,
-        pkgname + ".api": _stub(pkgname + ".api", MetzError=DummyApiError),
+        pkgname + ".api": _stub(
+            pkgname + ".api",
+            MetzConnectionError=DummyConnectionError,
+            MetzError=DummyApiError,
+        ),
         pkgname + ".const": _stub(
             pkgname + ".const", DOMAIN="metz_remote", SOURCE_BUTTONS={
                 "HDMI 1": (16, 1), "HDMI 2": (17, 2),
@@ -115,9 +122,17 @@ class FakeCoordinator:
             source_name="HDMI 1",
         )
         self.refresh_count = 0
+        self.active_source_unknown = False
 
     async def async_refresh(self):
         self.refresh_count += 1
+
+    def set_active_source_unknown(self):
+        self.active_source_unknown = True
+
+    @property
+    def source_name(self):
+        return None if self.active_source_unknown else self.data.source_name
 
 class FakeAPI:
     def __init__(self):
@@ -349,4 +364,24 @@ def test_source_selection_calls_three_key_macro_and_refreshes_status():
     api.async_select_f1_source = select
     asyncio.run(player.async_select_source("Cinch AV"))
     assert api.sent == [("Cinch AV", 5)]
+    assert coord.refreshes == [True]
+
+
+def test_source_selection_marks_source_unknown_when_tv_is_unreachable():
+    mod, _, _ = _load_player()
+    player, coord, api = _make_player(mod)
+    player.runtime.f1_source_selection_button_id = 5
+    coord.refreshes = []
+
+    async def refresh():
+        coord.refreshes.append(True)
+
+    async def select(*_args):
+        raise mod.MetzConnectionError("TV is starting")
+
+    coord.async_request_refresh = refresh
+    api.async_select_f1_source = select
+    asyncio.run(player.async_select_source("HDMI 1"))
+    assert coord.active_source_unknown is True
+    assert player.source is None
     assert coord.refreshes == [True]

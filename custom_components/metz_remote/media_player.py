@@ -19,7 +19,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import MetzCoordinator
-from .api import MetzError
+from .api import MetzConnectionError, MetzError
 from .const import (
     DOMAIN,
     KEY_CODES,
@@ -142,9 +142,11 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
 
     @property
     def source(self) -> str | None:
+        if self.coordinator.active_source_unknown:
+            return None
         if not self.coordinator.last_update_success:
             return None
-        return self.coordinator.data.source_name
+        return self.coordinator.source_name
 
     @property
     def source_list(self) -> list[str] | None:
@@ -190,6 +192,8 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             else:
                 assert f1_id is not None
                 await self.runtime.api.async_select_f1_source(source, f1_id)
+        except MetzConnectionError:
+            self.coordinator.set_active_source_unknown()
         except MetzError as err:
             raise HomeAssistantError(f"Metz source selection failed: {err}") from err
         finally:

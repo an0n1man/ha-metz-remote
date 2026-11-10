@@ -47,7 +47,10 @@ matching numeric button. Every macro waits three seconds, then reads
 the fixed table above; `DeviceList` labels are not used for source comparison
 or active-source reporting. On a mismatch, the integration sends **Exit** to
 leave the source menu and reports the failure. If the TV is starting, source
-selection waits up to 60 seconds for the SOAP endpoint before sending keys.
+selection waits up to 60 seconds for the SOAP endpoint before sending keys. If
+the endpoint remains unreachable, no keys are sent and the active-source sensor
+reports **unknown** until a successful status poll restores the TV-reported
+source.
 
 
 ### Active Source Status

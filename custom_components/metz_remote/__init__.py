@@ -50,12 +50,32 @@ class MetzCoordinator(DataUpdateCoordinator[MetzStatus]):
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
         self.api = api
+        self._active_source_unknown = False
+
+    @property
+    def active_source_unknown(self) -> bool:
+        """Whether source selection could not contact the TV endpoint."""
+        return self._active_source_unknown
+
+    @property
+    def source_name(self) -> str | None:
+        """Return the active source unless startup connectivity is unresolved."""
+        if self._active_source_unknown:
+            return None
+        status = getattr(self, "data", None)
+        return status.source_name if status is not None else None
+
+    def set_active_source_unknown(self) -> None:
+        """Expose an unknown source while the TV finishes starting."""
+        self._active_source_unknown = True
 
     async def _async_update_data(self) -> MetzStatus:
         try:
-            return await self.api.async_status()
+            status = await self.api.async_status()
         except MetzError as err:
             raise UpdateFailed(f"Cannot reach TV: {err}") from err
+        self._active_source_unknown = False
+        return status
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

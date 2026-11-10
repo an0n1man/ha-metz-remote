@@ -196,3 +196,17 @@ def test_canonical_analogue_active_ids_have_fixed_names():
     assert setup.MetzStatus(1, 0, 22, devices).source_name == "EURO"
     assert setup.MetzStatus(1, 0, 23, devices).source_name == "Cinch AV"
     assert setup.MetzStatus(1, 0, 54, devices).source_name == "Cinch Audio"
+
+
+def test_successful_coordinator_poll_clears_unknown_active_source():
+    setup, _ = setup_module_with_fake_ha()
+
+    class Api:
+        async def async_status(self):
+            return setup.MetzStatus(1, 0, 16, {16: "HDMI 1"})
+
+    coordinator = setup.MetzCoordinator(object(), Api())
+    coordinator.set_active_source_unknown()
+    assert coordinator.active_source_unknown is True
+    assert asyncio.run(coordinator._async_update_data()).active_device == 16
+    assert coordinator.active_source_unknown is False

@@ -89,7 +89,12 @@ def _make_entities(mod, *, powered=0, success=True, source=16):
         devices={0: "Metz-TV", 16: "HDMI 1", 17: "HDMI 2"},
         source_name=source_names.get(source),
     )
-    coord = types.SimpleNamespace(last_update_success=success, data=status)
+    coord = types.SimpleNamespace(
+        last_update_success=success,
+        active_source_unknown=False,
+        data=status,
+        source_name=status.source_name,
+    )
     runtime = types.SimpleNamespace(
         coordinator=coord,
         description=types.SimpleNamespace(udn="uuid:123", name="My Metz"),
@@ -120,6 +125,20 @@ def test_unknown_active_device_and_standby_are_not_fake_sources():
     for powered, success in ((1, True), (0, False)):
         source = _make_entities(mod, powered=powered, success=success)
         assert source.native_value is None
+
+
+def test_starting_tv_reports_active_source_as_unknown_not_unavailable():
+    mod = _import_real_sensor_module()
+    source = _make_entities(mod, success=False)
+    source.coordinator.active_source_unknown = True
+    source.coordinator.source_name = None
+    assert source.available is True
+    assert source.native_value is None
+    assert source.extra_state_attributes == {
+        "active_device_id": None,
+        "active_device_hex": None,
+        "source": None,
+    }
 
 
 def test_active_source_uses_canonical_analogue_id():
