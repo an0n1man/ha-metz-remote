@@ -20,7 +20,7 @@ CONF_F1_SOURCE_SELECTION_BUTTON_ID = "f1_source_selection_button_id"
 # Canonical RCRService ActiveDevice IDs. The DeviceList labels are not reliable
 # for identifying the active analogue source on this TV.
 ACTIVE_SOURCE_IDS: dict[str, int] = {
-    "Metz-TV": 0x00,
+    "TV": 0x00,
     "HDMI 1": 0x10,
     "HDMI 2": 0x11,
     "HDMI 3": 0x12,

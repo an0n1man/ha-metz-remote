@@ -144,8 +144,7 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             return None
         if not self.coordinator.last_update_success:
             return None
-        source = self.coordinator.source_name
-        return TV_SOURCE if source == "Metz-TV" else source
+        return self.coordinator.source_name
 
     @property
     def source_list(self) -> list[str] | None:

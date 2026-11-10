@@ -84,7 +84,7 @@ def _import_real_sensor_module():
 
 def _make_entities(mod, *, powered=0, success=True, source=16, power_sensor=None):
     source_names = {
-        0: "Metz-TV",
+        0: "TV",
         16: "HDMI 1",
         17: "HDMI 2",
         18: "HDMI 3",
@@ -96,7 +96,7 @@ def _make_entities(mod, *, powered=0, success=True, source=16, power_sensor=None
     status = types.SimpleNamespace(
         active_device=source,
         power_state=powered,
-        devices={0: "Metz-TV", 16: "HDMI 1", 17: "HDMI 2"},
+        devices={0: "TV", 16: "HDMI 1", 17: "HDMI 2"},
         source_name=source_names.get(source),
     )
     coord = types.SimpleNamespace(

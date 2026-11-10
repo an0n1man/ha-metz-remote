@@ -377,7 +377,7 @@ def test_verified_direction_and_source_codes() -> None:
         "Cinch Audio": (54, 7),
     }
     assert TV_SOURCE == "TV"
-    assert ACTIVE_SOURCE_IDS["Metz-TV"] == 0
+    assert ACTIVE_SOURCE_IDS["TV"] == 0
     assert ACTIVE_SOURCE_IDS["EURO"] == 22
 
 
@@ -555,7 +555,7 @@ def test_device_name_lookup_uses_canonical_active_ids_not_device_list_labels():
     assert status.get_device_name(16) == "HDMI 1"
     assert status.source_name == "HDMI 1"
     assert status.get_device_name(17) == "HDMI 2"
-    assert status.get_device_name(0) == "Metz-TV"
+    assert status.get_device_name(0) == "TV"
     assert status.get_device_name(22) == "EURO"
     assert status.get_device_name(23) == "Cinch AV"
     assert status.get_device_name(54) == "Cinch Audio"
