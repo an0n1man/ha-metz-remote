@@ -240,7 +240,7 @@ def test_power_sensor_classifies_state_and_available_power_action():
     mod, State, _ = _load_player()
     for watts, expected_state, expected_feature in (
         (80, State.ON, 1),
-        (20, State.IDLE, 2),
+        (20, State.OFF, 2),
         (5, State.OFF, 2),
     ):
         player, _, _ = _make_player(

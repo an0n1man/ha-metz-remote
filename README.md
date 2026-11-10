@@ -18,7 +18,9 @@ available sensor entities with the **power** device class. The media player
 reports **on** above 70 W, **idle** above 10 W through 70 W, and **off** at
 10 W or below. It exposes only **Turn off** while power is on; in all other
 measured states it exposes **Turn on**. The current reading and classification
-are available as `power_watts` and `power_mode` attributes.
+are available as `power_watts` and `power_mode` attributes. The idle band is
+presented to Home Assistant as media-player **off** so its turn-on control
+remains visible.
 
 Without a configured power sensor, the integration uses the TV's SOAP
 `PowerState` to report **on** or **off**. In both modes, **Turn off** sends

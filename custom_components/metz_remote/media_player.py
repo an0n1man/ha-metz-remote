@@ -134,9 +134,7 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
         power_mode = self._power_mode()
         if power_mode == "on":
             return MediaPlayerState.ON
-        if power_mode == "idle":
-            return MediaPlayerState.IDLE
-        if power_mode == "off":
+        if power_mode in {"idle", "off"}:
             return MediaPlayerState.OFF
         return None
 
