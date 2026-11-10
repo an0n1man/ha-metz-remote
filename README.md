@@ -19,9 +19,9 @@ The F1 source list uses these fixed visible button IDs:
 |      2 | HDMI 2      |           `0x11` (17) |
 |      3 | HDMI 3      |           `0x12` (18) |
 |      4 | HDMI 4      |           `0x13` (19) |
-|      5 | EURO        |                 22 |
-|      6 | Cinch AV    |                 23 |
-|      7 | Cinch Audio |                 54 |
+|      5 | EURO        |                    22 |
+|      6 | Cinch AV    |                    23 |
+|      7 | Cinch Audio |                    54 |
 
 The integration sends the matching button for every source, waits three
 seconds, then reads `GetActiveDevice` and `GetDeviceList`. It compares the
