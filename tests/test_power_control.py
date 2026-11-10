@@ -319,6 +319,8 @@ def test_source_selection_exposes_tv_without_f1_configuration():
     coord.data.source_name = "HDMI 2"
     assert player.source == "HDMI 2"
     assert player.source_list == ["TV"]
+    coord.data.source_name = "Metz-TV"
+    assert player.source == "TV"
     assert player._attr_supported_features & 32  # SELECT_SOURCE
     with pytest.raises(HomeAssistantError, match="Configure an F1"):
         asyncio.run(player.async_select_source("HDMI 1"))
