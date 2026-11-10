@@ -46,7 +46,8 @@ matching numeric button. Every macro waits three seconds, then reads
 `GetActiveDevice` and `GetDeviceList`. It compares the reported active ID to
 the fixed table above; `DeviceList` labels are not used for source comparison
 or active-source reporting. On a mismatch, the integration sends **Exit** to
-leave the source menu and reports the failure.
+leave the source menu and reports the failure. If the TV is starting, source
+selection waits up to 60 seconds for the SOAP endpoint before sending keys.
 
 
 ### Active Source Status

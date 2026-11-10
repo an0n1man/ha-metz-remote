@@ -205,7 +205,7 @@ class MetzClient:
                 if attempt + 1 < attempts:
                     await asyncio.sleep(0.2)
                     continue
-                raise MetzError(f"SOAP {action} failed: {err}") from err
+                raise MetzConnectionError(f"SOAP {action} failed: {err}") from err
             except (aiohttp.ClientError, TimeoutError, ET.ParseError) as err:
                 raise MetzError(f"SOAP {action} failed: {err}") from err
         body = root.find(f"{{{SOAP_NS}}}Body")
@@ -317,6 +317,27 @@ class MetzClient:
         async with self._command_lock:
             await self._async_send_key_unlocked(code)
 
+    async def _async_get_active_device_when_ready_unlocked(
+        self,
+        *,
+        startup_wait_timeout: float,
+        startup_retry_delay: float,
+    ) -> int:
+        """Wait for startup SOAP readiness and return ActiveDevice once available."""
+        deadline = asyncio.get_running_loop().time() + startup_wait_timeout
+        while True:
+            try:
+                response = await self.async_action("GetActiveDevice")
+                return int(response["ActiveDevice"])
+            except MetzConnectionError as err:
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise MetzConnectionError(
+                        "TV did not become ready for source selection before timeout"
+                    ) from err
+                await asyncio.sleep(startup_retry_delay)
+            except (KeyError, ValueError) as err:
+                raise MetzError("Cannot determine current TV source") from err
+
     async def _async_confirm_source_unlocked(
         self, source: str, expected_device: int
     ) -> None:
@@ -344,15 +365,16 @@ class MetzClient:
         *,
         source_key_delay: float = 1.0,
         settle_delay: float = 3.0,
+        startup_wait_timeout: float = 60.0,
+        startup_retry_delay: float = 2.0,
     ) -> bool:
-        """Select TV with Source -> OK and verify ActiveDevice=0."""
+        """Select TV with Source -> OK once startup SOAP is ready."""
         expected_device = 0
         async with self._command_lock:
-            before = await self.async_action("GetActiveDevice")
-            try:
-                active_device = int(before["ActiveDevice"])
-            except (KeyError, ValueError) as err:
-                raise MetzError("Cannot determine current TV source") from err
+            active_device = await self._async_get_active_device_when_ready_unlocked(
+                startup_wait_timeout=startup_wait_timeout,
+                startup_retry_delay=startup_retry_delay,
+            )
             if active_device == expected_device:
                 return False
             await self._async_send_key_unlocked(KEY_CODES["source"])
@@ -370,6 +392,8 @@ class MetzClient:
         first_key_delay: float = 0.85,
         second_key_delay: float = 0.65,
         settle_delay: float = 3.0,
+        startup_wait_timeout: float = 60.0,
+        startup_retry_delay: float = 2.0,
     ) -> bool:
         """Select via F1 -> configured SOAP KeyCode -> numeric source key.
 
@@ -384,11 +408,10 @@ class MetzClient:
             raise MetzError("F1 source-list button ID must be between 1 and 10")
         expected_device, button_number = SOURCE_BUTTONS[source]
         async with self._command_lock:
-            before = await self.async_action("GetActiveDevice")
-            try:
-                active_device = int(before["ActiveDevice"])
-            except (KeyError, ValueError) as err:
-                raise MetzError("Cannot determine current TV source") from err
+            active_device = await self._async_get_active_device_when_ready_unlocked(
+                startup_wait_timeout=startup_wait_timeout,
+                startup_retry_delay=startup_retry_delay,
+            )
             if active_device == expected_device:
                 return False
             # Metz APK: F1=12; digit_1=2, ..., digit_7=8.

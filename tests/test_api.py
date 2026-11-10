@@ -177,6 +177,48 @@ def test_f1_source_macro_all_seven_inputs() -> None:
     asyncio.run(check())
 
 
+def test_f1_source_macro_waits_for_soap_startup_before_sending_keys() -> None:
+    async def check():
+        api = MetzClient(object(), "127.0.0.1")
+        active_attempts = 0
+        sent = []
+        delays = []
+
+        async def action(name, arguments=None):
+            nonlocal active_attempts
+            if name == "GetActiveDevice":
+                active_attempts += 1
+                if active_attempts <= 2:
+                    raise MetzConnectionError("TV is starting")
+                return {"ActiveDevice": "16" if sent else "17"}
+            if name == "GetDeviceList":
+                return {"ActiveDevice": "16", "DeviceList": "0x10;HDMI 1;"}
+            raise AssertionError(f"Unexpected action: {name}")
+
+        async def send_key(code):
+            sent.append(code)
+
+        async def sleep(delay):
+            delays.append(delay)
+
+        api.async_action = action
+        api._async_send_key_unlocked = send_key
+        with patch("metz_remote.api.asyncio.sleep", new=sleep):
+            assert await api.async_select_f1_source(
+                "HDMI 1",
+                5,
+                first_key_delay=0,
+                second_key_delay=0,
+                settle_delay=0,
+                startup_retry_delay=1.5,
+            ) is True
+
+        assert sent == [12, 5, 2]
+        assert delays == [1.5, 1.5, 0, 0, 0]
+
+    asyncio.run(check())
+
+
 def test_tv_source_macro_sends_source_then_ok_and_verifies_zero() -> None:
     async def check():
         api = MetzClient(object(), "127.0.0.1")
