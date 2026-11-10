@@ -1,7 +1,7 @@
 {
   "domain": "metz_remote",
   "name": "Metz Remote",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "documentation": "https://github.com/kaoh/metzctl",
   "codeowners": [],
   "config_flow": true,

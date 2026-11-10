@@ -182,23 +182,9 @@ def test_options_override_initial_wol_configuration():
     assert entry.runtime_data.broadcast_address == "192.168.1.255"
 
 
-def test_analogue_source_override_requires_its_known_raw_id():
+def test_canonical_analogue_active_ids_have_fixed_names():
     setup, _ = setup_module_with_fake_ha()
-    coordinator = setup.MetzCoordinator(object(), object())
-    coordinator.data = setup.MetzStatus(
-        operation_mode=1,
-        power_state=0,
-        active_device=22,
-        devices={16: "HDMI 1", 22: "Cinch Audio"},
-    )
-
-    coordinator.set_source_override("EURO")
-    assert coordinator.source_name == "EURO"
-
-    coordinator.data = setup.MetzStatus(
-        operation_mode=1,
-        power_state=0,
-        active_device=16,
-        devices={16: "HDMI 1", 22: "Cinch Audio"},
-    )
-    assert coordinator.source_name == "HDMI 1"
+    devices = {22: "Cinch Audio"}
+    assert setup.MetzStatus(1, 0, 22, devices).source_name == "EURO"
+    assert setup.MetzStatus(1, 0, 23, devices).source_name == "Cinch AV"
+    assert setup.MetzStatus(1, 0, 54, devices).source_name == "Cinch Audio"

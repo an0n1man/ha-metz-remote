@@ -179,22 +179,21 @@ def test_f1_source_macro_all_seven_inputs() -> None:
 
 def test_f1_source_macro_rejects_unknown_and_mismatching_readback() -> None:
     async def check():
-        active_device_reads = 0
+        sent = []
 
         async def handler(req):
-            nonlocal active_device_reads
             payload = ET.fromstring(await req.read())
             method = next(iter(payload.find(f"{{{SOAP}}}Body")))
             action = method.tag.split("}")[-1]
             if action == "GetActiveDevice":
-                active_device_reads += 1
-                values = {"ActiveDevice": "17" if active_device_reads == 1 else "16"}
+                values = {"ActiveDevice": "17"}
             elif action == "GetDeviceList":
                 values = {
-                    "ActiveDevice": "16",
+                    "ActiveDevice": "17",
                     "DeviceList": "0x10;Wrong input name;",
                 }
             else:
+                sent.append(int(next(child.text for child in method if child.tag == "KeyCode")))
                 values = {}
             return web.Response(text=xml_response(action, values), content_type="text/xml")
 
@@ -212,6 +211,7 @@ def test_f1_source_macro_rejects_unknown_and_mismatching_readback() -> None:
                 with pytest.raises(MetzError, match="HDMI 1 not confirmed"):
                     await api.async_select_f1_source("HDMI 1", 5, first_key_delay=0,
                                                      second_key_delay=0, settle_delay=0)
+                assert sent == [12, 5, 2, 40]
                 for invalid in (None, 0, 11, True, -1):
                     with pytest.raises(MetzError, match="button ID"):
                         await api.async_select_f1_source("HDMI 1", invalid)
@@ -256,7 +256,7 @@ def test_f1_source_macro_waits_three_seconds_before_name_verification() -> None:
     asyncio.run(check())
 
 
-def test_f1_source_macro_uses_device_list_active_name_for_verification() -> None:
+def test_f1_source_macro_uses_canonical_active_id_not_device_list_name() -> None:
     async def check():
         api = MetzClient(object(), "127.0.0.1")
         sent = []
@@ -267,7 +267,7 @@ def test_f1_source_macro_uses_device_list_active_name_for_verification() -> None
                 return {"ActiveDevice": "17" if not sent else "22"}
             if name == "GetDeviceList":
                 return {
-                    "ActiveDevice": "20",
+                    "ActiveDevice": "22",
                     "DeviceList": "0x14;EURO;0x16;Cinch Audio;",
                 }
             raise AssertionError(f"Unexpected action: {name}")
@@ -288,44 +288,8 @@ def test_f1_source_macro_uses_device_list_active_name_for_verification() -> None
     asyncio.run(check())
 
 
-def test_f1_source_macro_accepts_known_analogue_status_mismatches() -> None:
-    async def check():
-        for source, reported_id in {
-            "EURO": 22,
-            "Cinch AV": 23,
-            "Cinch Audio": 54,
-        }.items():
-            api = MetzClient(object(), "127.0.0.1")
-            sent = []
-
-            async def action(name, arguments=None):
-                if name == "GetActiveDevice":
-                    return {"ActiveDevice": str(reported_id if sent else 0)}
-                if name == "GetDeviceList":
-                    return {
-                        "ActiveDevice": str(reported_id),
-                        "DeviceList": "0x14;EURO;0x15;Cinch AV;0x16;Cinch Audio;",
-                    }
-                raise AssertionError(f"Unexpected action: {name}")
-
-            async def send_key(code):
-                sent.append(code)
-
-            async def sleep(_delay):
-                pass
-
-            api.async_action = action
-            api._async_send_key_unlocked = send_key
-            with patch("metz_remote.api.asyncio.sleep", new=sleep):
-                assert await api.async_select_f1_source(source, 5) is True
-
-            assert len(sent) == 3
-
-    asyncio.run(check())
-
-
 def test_verified_direction_and_source_codes() -> None:
-    from metz_remote.const import KEY_CODES, SOURCE_BUTTONS
+    from metz_remote.const import ACTIVE_SOURCE_IDS, KEY_CODES, SOURCE_BUTTONS
     assert [KEY_CODES[k] for k in ("up", "left", "right", "down")] == [23, 25, 26, 24]
     assert KEY_CODES["source"] == 49
     assert SOURCE_BUTTONS == {
@@ -333,10 +297,11 @@ def test_verified_direction_and_source_codes() -> None:
         "HDMI 2": (17, 2),
         "HDMI 3": (18, 3),
         "HDMI 4": (19, 4),
-        "EURO": (20, 5),
-        "Cinch AV": (21, 6),
-        "Cinch Audio": (22, 7),
+        "EURO": (22, 5),
+        "Cinch AV": (23, 6),
+        "Cinch Audio": (54, 7),
     }
+    assert ACTIVE_SOURCE_IDS["EURO"] == 22
 
 
 def test_separate_tcp_connection_for_each_soap_request() -> None:
@@ -503,17 +468,18 @@ def test_bad_description_is_not_offline_error() -> None:
     asyncio.run(check())
 
 
-def test_device_name_lookup_uses_tv_labels_not_hardcoded_ids():
+def test_device_name_lookup_uses_canonical_active_ids_not_device_list_labels():
     from metz_remote.api import MetzStatus
 
     status = MetzStatus(
         operation_mode=1, power_state=0, active_device=16,
-        devices={0: " TV-Tuner ", 16: " Blu-ray-Player ", 17: "Wohnzimmer-Konsole"},
+        devices={0: " TV-Tuner ", 16: " Blu-ray-Player ", 22: " Cinch Audio "},
     )
-    assert status.get_device_name(16) == "Blu-ray-Player"
-    assert status.source_name == "Blu-ray-Player"
-    assert status.get_device_name(17) == "Wohnzimmer-Konsole"
-    assert status.get_device_name(0) == "TV-Tuner"
-    assert status.get_device_name(19) is None
-    assert MetzStatus(1, 0, 19, status.devices).source_name is None
-    assert MetzStatus(1, 0, 16, {16: "   "}).source_name is None
+    assert status.get_device_name(16) == "HDMI 1"
+    assert status.source_name == "HDMI 1"
+    assert status.get_device_name(17) == "HDMI 2"
+    assert status.get_device_name(0) == "Metz-TV"
+    assert status.get_device_name(22) == "EURO"
+    assert status.get_device_name(23) == "Cinch AV"
+    assert status.get_device_name(54) == "Cinch Audio"
+    assert MetzStatus(1, 0, 255, status.devices).source_name is None

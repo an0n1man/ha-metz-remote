@@ -14,28 +14,33 @@ DEFAULT_SCAN_INTERVAL = 15
 # This preserves existing 0.3.1 config entries without a migration.
 CONF_F1_SOURCE_SELECTION_BUTTON_ID = "f1_source_selection_button_id"
 
-# TV-reported input IDs and the fixed numbered buttons in the F1 source list.
-# The internal tuner (0x00) is deliberately not selectable.
-SOURCE_BUTTONS: dict[str, tuple[int, int]] = {
-    "HDMI 1": (0x10, 1),
-    "HDMI 2": (0x11, 2),
-    "HDMI 3": (0x12, 3),
-    "HDMI 4": (0x13, 4),
-    "EURO": (0x14, 5),
-    "Cinch AV": (0x15, 6),
-    "Cinch Audio": (0x16, 7),
-}
-
-# This TV's F1 sequence selects these analogue sources correctly, but its
-# RCRService reports unrelated ActiveDevice values afterward. These values
-# let the coordinator retain the last successful analogue command as a source
-# override only while the TV continues to report that specific anomaly.
-ANALOGUE_F1_SOURCE_ACTIVE_DEVICE_IDS: dict[str, int] = {
+# Canonical RCRService ActiveDevice IDs. The DeviceList labels are not reliable
+# for identifying the active analogue source on this TV.
+ACTIVE_SOURCE_IDS: dict[str, int] = {
+    "Metz-TV": 0x00,
+    "HDMI 1": 0x10,
+    "HDMI 2": 0x11,
+    "HDMI 3": 0x12,
+    "HDMI 4": 0x13,
     "EURO": 22,
     "Cinch AV": 23,
     "Cinch Audio": 54,
 }
-UNVERIFIABLE_F1_SOURCES = frozenset(ANALOGUE_F1_SOURCE_ACTIVE_DEVICE_IDS)
+ACTIVE_SOURCE_NAMES = {
+    active_device: source for source, active_device in ACTIVE_SOURCE_IDS.items()
+}
+
+# Fixed numbered buttons in the F1 source list. The internal tuner is not
+# selectable through this macro.
+SOURCE_BUTTONS: dict[str, tuple[int, int]] = {
+    "HDMI 1": (ACTIVE_SOURCE_IDS["HDMI 1"], 1),
+    "HDMI 2": (ACTIVE_SOURCE_IDS["HDMI 2"], 2),
+    "HDMI 3": (ACTIVE_SOURCE_IDS["HDMI 3"], 3),
+    "HDMI 4": (ACTIVE_SOURCE_IDS["HDMI 4"], 4),
+    "EURO": (ACTIVE_SOURCE_IDS["EURO"], 5),
+    "Cinch AV": (ACTIVE_SOURCE_IDS["Cinch AV"], 6),
+    "Cinch Audio": (ACTIVE_SOURCE_IDS["Cinch Audio"], 7),
+}
 
 # From Metz Remote APK de.metz.android.mecaremote: the Android
 # ButtonLayout.rcViewMap and legacy RcView class. Unknown swipe codes 70/71

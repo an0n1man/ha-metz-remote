@@ -73,17 +73,23 @@ def _import_real_sensor_module():
 
 
 def _make_entities(mod, *, powered=0, success=True, source=16):
+    source_names = {
+        0: "Metz-TV",
+        16: "HDMI 1",
+        17: "HDMI 2",
+        18: "HDMI 3",
+        19: "HDMI 4",
+        22: "EURO",
+        23: "Cinch AV",
+        54: "Cinch Audio",
+    }
     status = types.SimpleNamespace(
         active_device=source,
         power_state=powered,
         devices={0: "Metz-TV", 16: "HDMI 1", 17: "HDMI 2"},
-        source_name={0: "Metz-TV", 16: "HDMI 1", 17: "HDMI 2"}.get(source),
+        source_name=source_names.get(source),
     )
-    coord = types.SimpleNamespace(
-        last_update_success=success,
-        data=status,
-        source_name=status.source_name,
-    )
+    coord = types.SimpleNamespace(last_update_success=success, data=status)
     runtime = types.SimpleNamespace(
         coordinator=coord,
         description=types.SimpleNamespace(udn="uuid:123", name="My Metz"),
@@ -116,10 +122,9 @@ def test_unknown_active_device_and_standby_are_not_fake_sources():
         assert source.native_value is None
 
 
-def test_active_source_uses_analogue_command_override():
+def test_active_source_uses_canonical_analogue_id():
     mod = _import_real_sensor_module()
     source = _make_entities(mod, source=22)
-    source.coordinator.source_name = "EURO"
     assert source.native_value == "EURO"
     assert source.extra_state_attributes == {
         "active_device_id": 22,
@@ -166,8 +171,7 @@ def test_volume_registry_entry_is_removed_on_upgrade():
 def test_sensor_preserves_tv_reported_custom_input_name():
     mod = _import_real_sensor_module()
     source = _make_entities(mod)
-    source.coordinator.data.source_name = "Blu-ray-Player"
-    source.coordinator.source_name = "Blu-ray-Player"
-    assert source.native_value == "Blu-ray-Player"
-    assert source.extra_state_attributes["source"] == "Blu-ray-Player"
+    source.coordinator.data.source_name = "HDMI 1"
+    assert source.native_value == "HDMI 1"
+    assert source.extra_state_attributes["source"] == "HDMI 1"
     assert source.extra_state_attributes["active_device_id"] == 16

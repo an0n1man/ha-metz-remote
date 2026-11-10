@@ -59,11 +59,8 @@ def _load_player():
             pkgname + ".const", DOMAIN="metz_remote", SOURCE_BUTTONS={
                 "HDMI 1": (16, 1), "HDMI 2": (17, 2),
                 "HDMI 3": (18, 3), "HDMI 4": (19, 4),
-                "EURO": (20, 5), "Cinch AV": (21, 6),
-                "Cinch Audio": (22, 7),
-            },
-            ANALOGUE_F1_SOURCE_ACTIVE_DEVICE_IDS={
-                "EURO": 22, "Cinch AV": 23, "Cinch Audio": 54,
+                "EURO": (22, 5), "Cinch AV": (23, 6),
+                "Cinch Audio": (54, 7),
             },
             KEY_CODES={"power": 11},
         ),
@@ -103,15 +100,9 @@ class FakeCoordinator:
         self.last_update_success = success
         self.data = types.SimpleNamespace(power_state=power)
         self.refresh_count = 0
-        self.source_name = None
-        self.source_override = None
 
     async def async_refresh(self):
         self.refresh_count += 1
-
-    def set_source_override(self, source):
-        self.source_override = source
-
 
 class FakeAPI:
     def __init__(self):
@@ -231,7 +222,7 @@ def test_wol_packet_format_and_broadcast_target():
 def test_source_selection_is_hidden_unless_f1_id_is_configured():
     mod, _, HomeAssistantError = _load_player()
     player, coord, _ = _make_player(mod)
-    coord.source_name = "HDMI 2"
+    coord.data.source_name = "HDMI 2"
     # Even without a configurable F1 key, SOAP source status remains readable.
     assert player.source == "HDMI 2"
     assert player.source_list is None
@@ -266,5 +257,4 @@ def test_source_selection_calls_three_key_macro_and_refreshes_status():
     api.async_select_f1_source = select
     asyncio.run(player.async_select_source("Cinch AV"))
     assert api.sent == [("Cinch AV", 5)]
-    assert coord.source_override == "Cinch AV"
     assert coord.refreshes == [True]

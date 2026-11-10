@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 from contextlib import suppress
 from dataclasses import dataclass
-import logging
 from urllib.parse import urljoin, urlsplit
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
@@ -17,8 +16,12 @@ from xml.sax.saxutils import escape
 import aiohttp
 
 from .const import (
-    DEFAULT_PORT, DEVICE_TYPE, SERVICE_TYPE, KEY_CODES, SOURCE_BUTTONS,
-    UNVERIFIABLE_F1_SOURCES,
+    ACTIVE_SOURCE_NAMES,
+    DEFAULT_PORT,
+    DEVICE_TYPE,
+    KEY_CODES,
+    SERVICE_TYPE,
+    SOURCE_BUTTONS,
 )
 
 SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -30,7 +33,6 @@ NO_KEEPALIVE_HEADERS = {"Connection": "close"}
 READ_ONLY_ACTIONS = frozenset({
     "GetOperationMode", "GetDeviceList", "GetPowerState", "GetActiveDevice",
 })
-_LOGGER = logging.getLogger(__name__)
 
 
 def _parse_device_list(value: str) -> dict[int, str]:
@@ -75,20 +77,12 @@ class MetzStatus:
     devices: dict[int, str]
 
     def get_device_name(self, device_id: int) -> str | None:
-        """Return a TV-supplied input name from the GetDeviceList response.
-
-        This deliberately does not synthesize names from fixed HDMI IDs.
-        The Android app's unrelated StringHelper.getDeviceName() returns
-        the PHONE model and must not be used for an active TV source.
-        """
-        value = self.devices.get(device_id)
-        if not isinstance(value, str):
-            return None
-        return value.strip() or None
+        """Return the canonical name for an RCRService ActiveDevice ID."""
+        return ACTIVE_SOURCE_NAMES.get(device_id)
 
     @property
     def source_name(self) -> str | None:
-        """Name of the active input, as provided by the television."""
+        """Name of the active input from the canonical ActiveDevice table."""
         return self.get_device_name(self.active_device)
 
 
@@ -335,9 +329,9 @@ class MetzClient:
         """Select via F1 -> configured SOAP KeyCode -> numeric source key.
 
         After a three-second settle period, GetActiveDevice and GetDeviceList
-        are read. GetDeviceList supplies the authoritative active-device ID
-        and name for comparison. A partially delivered command is never
-        retried automatically.
+        are read. The canonical ActiveDevice table, rather than DeviceList
+        labels, is used for comparison. A partially delivered command is
+        never retried automatically.
         """
         if source not in SOURCE_BUTTONS:
             raise MetzError(f"Unsupported source: {source!r}")
@@ -369,24 +363,11 @@ class MetzClient:
                 listed_active_device = int(devices["ActiveDevice"])
             except (KeyError, ValueError) as err:
                 raise MetzError("Cannot verify TV source after switching") from err
-            selected_name = _parse_device_list(devices.get("DeviceList", "")).get(
-                listed_active_device
-            )
-            if selected_name != source:
-                if source in UNVERIFIABLE_F1_SOURCES:
-                    _LOGGER.warning(
-                        "Metz selected %s but RCRService reports "
-                        "GetActiveDevice=%s, GetDeviceList ActiveDevice=%s, "
-                        "name=%r; accepting known analogue-source status mismatch",
-                        source,
-                        reported_active_device,
-                        listed_active_device,
-                        selected_name,
-                    )
-                    return True
+            if reported_active_device != expected_device:
+                await self._async_send_key_unlocked(KEY_CODES["exit"])
                 raise MetzError(
-                    f"{source} not confirmed: GetActiveDevice="
-                    f"{reported_active_device}, GetDeviceList ActiveDevice="
-                    f"{listed_active_device}, name={selected_name!r}"
+                    f"{source} not confirmed: expected ActiveDevice="
+                    f"{expected_device}, GetActiveDevice={reported_active_device}, "
+                    f"GetDeviceList ActiveDevice={listed_active_device}"
                 )
             return True

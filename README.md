@@ -1,15 +1,15 @@
 # Metz Remote — Home Assistant custom integration
 
-Version **0.3.8**: F1 source selection uses the fixed Metz source-button mapping. No per-source configuration is required.
+Version **0.3.9**: active-source identity uses fixed RCRService ActiveDevice IDs rather than DeviceList labels.
 
 Experimental Home Assistant custom integration for **Metz Remote**, package
-version **0.3.8**, domain `metz_remote`.
+version **0.3.9**, domain `metz_remote`.
 
 The communication is local: the TV advertises `RCRService:1` SOAP on TCP 49200.
 It was discovered and the basics were tested with an actual Metz TV; this
-version's F1 source-button mapping has been confirmed by the user.
+version's F1 source-button and active-device mappings have been confirmed by the user.
 
-## v0.3.8 - Fixed F1 source-button mapping
+## v0.3.9 - Canonical active-source IDs
 
 The F1 source list uses these fixed visible button IDs:
 
@@ -19,37 +19,29 @@ The F1 source list uses these fixed visible button IDs:
 |      2 | HDMI 2      |           `0x11` (17) |
 |      3 | HDMI 3      |           `0x12` (18) |
 |      4 | HDMI 4      |           `0x13` (19) |
-|      5 | EURO        |           `0x14` (20) |
-|      6 | Cinch AV    |           `0x15` (21) |
-|      7 | Cinch Audio |           `0x16` (22) |
+|      5 | EURO        |                 22 |
+|      6 | Cinch AV    |                 23 |
+|      7 | Cinch Audio |                 54 |
 
 The integration sends the matching button for every source, waits three
-seconds, then reads `GetActiveDevice` and `GetDeviceList`. The name for
-`GetDeviceList`'s own `ActiveDevice` must match the selected source.
-
-The observed TV firmware reports inconsistent `ActiveDevice` values after the
-otherwise successful F1 selections for **EURO**, **Cinch AV**, and **Cinch
-Audio** (`22`, `23`, and `54`, respectively). Those selections are accepted
-without a SOAP match so Home Assistant does not report a false service error.
-After one of those successful commands, the active-source sensor and media
-player retain the commanded analogue source while the corresponding anomalous
-raw ID remains reported. A different raw ID clears the override. HDMI
-selections remain strictly verified.
+seconds, then reads `GetActiveDevice` and `GetDeviceList`. It compares the
+reported active ID to the fixed table above; `DeviceList` labels are not used
+for source comparison or active-source reporting. On a mismatch, the
+integration sends **Exit** to leave the source menu and reports the failure.
 
 
-## v0.3.4 — Active source uses the TV-reported name
+## v0.3.4 — Active source status
 
-The `sensor` active-source state and the `media_player.source` property
-now consistently use the friendly name associated with the active device ID
-in `GetDeviceList` (the name reported by the TV itself). This includes custom
-input names when the TV actually returns them. Whitespace padding is removed;
-unknown IDs or empty TV names report `unknown` instead of a fabricated
-`Device <id>` label. Source IDs remain available as sensor attributes.
+The `sensor` active-source state and the `media_player.source` property use
+the canonical RCRService `ActiveDevice` table. `GetDeviceList` remains useful
+for diagnostics and detected-source attributes, but its labels do not identify
+the active source. Unknown IDs report `unknown`; raw IDs remain available as
+sensor attributes.
 
 **Protocol distinction:** The Android APK's
 `StringHelper.getDeviceName()` actually returns the Android phone manufacturer
 and model; the TV's RCRService has no `GetDeviceName` SOAP operation. For source
-labels, `GetDeviceList` is therefore the appropriate TV-provided lookup.
+labels, `GetDeviceList` is therefore not used as the active-source lookup.
 
 Source selection, saved configuration, entity IDs, branding and command mappings
 are unchanged.
