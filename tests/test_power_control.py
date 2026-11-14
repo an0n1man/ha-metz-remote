@@ -37,6 +37,9 @@ def _load_player():
         NEXT_TRACK = 8
         PREVIOUS_TRACK = 16
         SELECT_SOURCE = 32
+        PLAY = 64
+        PAUSE = 128
+        STOP = 256
 
     class MediaPlayerDeviceClass:
         TV = "tv"
@@ -73,7 +76,16 @@ def _load_player():
             TV_SOURCE="TV",
             POWER_OFF_WATTS=10.0,
             POWER_ON_WATTS=70.0,
-            KEY_CODES={"power": 11},
+            KEY_CODES={
+                "power": 11,
+                "play": 43,
+                "stop": 44,
+                "pause": 66,
+                "volume_up": 27,
+                "volume_down": 28,
+                "channel_up": 46,
+                "channel_down": 47,
+            },
         ),
         pkgname + ".wol": _stub(pkgname + ".wol", async_send_magic_packet=None),
         "homeassistant": _stub("homeassistant"),
@@ -234,6 +246,21 @@ def test_turn_on_does_nothing_if_already_on():
     mod.async_send_magic_packet = send
     asyncio.run(player.async_turn_on())
     assert not called and api.sent == []
+
+
+def test_play_pause_stop_controls_send_apk_keys():
+    mod, _, _ = _load_player()
+    player, _, api = _make_player(mod)
+
+    assert player.supported_features & 64  # PLAY
+    assert player.supported_features & 128  # PAUSE
+    assert player.supported_features & 256  # STOP
+
+    asyncio.run(player.async_media_play())
+    asyncio.run(player.async_media_pause())
+    asyncio.run(player.async_media_stop())
+
+    assert api.sent == [43, 66, 44]
 
 
 def test_power_sensor_classifies_state_and_available_power_action():

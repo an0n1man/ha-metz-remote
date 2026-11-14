@@ -61,6 +61,9 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
             | MediaPlayerEntityFeature.NEXT_TRACK
             | MediaPlayerEntityFeature.PREVIOUS_TRACK
             | MediaPlayerEntityFeature.SELECT_SOURCE
+            | MediaPlayerEntityFeature.PLAY
+            | MediaPlayerEntityFeature.PAUSE
+            | MediaPlayerEntityFeature.STOP
         )
 
     async def async_added_to_hass(self) -> None:
@@ -203,6 +206,15 @@ class MetzMediaPlayer(CoordinatorEntity[MetzCoordinator], MediaPlayerEntity):
 
     async def async_volume_down(self) -> None:
         await self._key(KEY_CODES["volume_down"])
+
+    async def async_media_play(self) -> None:
+        await self._key(KEY_CODES["play"])
+
+    async def async_media_pause(self) -> None:
+        await self._key(KEY_CODES["pause"])
+
+    async def async_media_stop(self) -> None:
+        await self._key(KEY_CODES["stop"])
 
     async def async_media_next_track(self) -> None:
         """Map Next to next TV channel (not playback seek)."""
